@@ -17,6 +17,7 @@ export class SelectionController {
   private readonly box: SelectionBox
   private readonly viewport = new Viewport(0, 0, 1, 1)
   private readonly screen = new Vector3()
+  private readonly groups = new Map<string, readonly number[]>()
   private pointerId: number | null = null
   private startX = 0
   private startY = 0
@@ -43,6 +44,22 @@ export class SelectionController {
     canvas.addEventListener('pointermove', this.onPointerMove)
     canvas.addEventListener('pointerup', this.onPointerUp)
     canvas.addEventListener('pointercancel', this.onPointerCancel)
+    window.addEventListener('keydown', this.onKeyDown)
+  }
+
+  private readonly onKeyDown = (e: KeyboardEvent): void => {
+    const match = /^Digit(\d)$/.exec(e.code)
+    if (!match || e.repeat) return
+    const group = match[1]
+    if (e.ctrlKey) {
+      e.preventDefault()
+      const ids = this.unitManager.selected().map((unit) => unit.id)
+      if (ids.length > 0) this.groups.set(group, ids)
+      else this.groups.delete(group)
+    } else {
+      const ids = this.groups.get(group)
+      if (ids) this.unitManager.setSelection(ids, e.shiftKey)
+    }
   }
 
   private readonly onPointerDown = (e: PointerEvent): void => {
