@@ -1,8 +1,10 @@
 import './style.css'
 import { Color4, Engine, Scene } from '@babylonjs/core'
 import { RtsCamera } from './camera/RtsCamera'
+import { CommandController } from './input/CommandController'
 import { SelectionController } from './input/SelectionController'
 import { createWorld } from './scene/createWorld'
+import { MoveMarker } from './ui/MoveMarker'
 import { SelectionBox } from './ui/SelectionBox'
 import { UnitManager } from './units/UnitManager'
 
@@ -15,7 +17,7 @@ scene.clearColor = new Color4(0.06, 0.07, 0.09, 1)
 
 const rtsCamera = new RtsCamera(scene, canvas)
 
-createWorld(scene)
+const ground = createWorld(scene)
 
 const unitManager = new UnitManager(scene)
 scene.onBeforeRenderObservable.add(() => {
@@ -29,6 +31,8 @@ new SelectionController(
   unitManager,
   new SelectionBox(document.getElementById('selection-box') as HTMLElement),
 )
+
+new CommandController(scene, canvas, ground, rtsCamera, unitManager, new MoveMarker(scene))
 
 engine.runRenderLoop(() => scene.render())
 window.addEventListener('resize', () => engine.resize())
