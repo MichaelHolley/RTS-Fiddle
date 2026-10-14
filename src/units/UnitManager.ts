@@ -16,6 +16,7 @@ const SELECTED_COLOR = Color3.FromHexString('#44ff66')
 export class UnitManager {
   readonly units: readonly Unit[]
   readonly formations = new Set<Formation>()
+  readonly groups = new Map<string, readonly number[]>()
 
   private readonly mesh: Mesh
   private selectionSize = 0
@@ -99,6 +100,17 @@ export class UnitManager {
 
   selected(): Unit[] {
     return this.units.filter((unit) => unit.selected)
+  }
+
+  assignGroup(key: string): void {
+    const ids = this.selected().map((unit) => unit.id)
+    if (ids.length > 0) this.groups.set(key, ids)
+    else this.groups.delete(key)
+  }
+
+  recallGroup(key: string, additive: boolean): void {
+    const ids = this.groups.get(key)
+    if (ids) this.setSelection(ids, additive)
   }
 
   issueMove(formation: Formation): void {

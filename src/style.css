@@ -30,3 +30,30 @@ body {
   font: 12px/1.4 monospace;
   color: #ddd;
 }
+
+#groups {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+  font: 12px/1.4 monospace;
+  color: #ddd;
+}
+
+.group-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 32px;
+  padding: 2px 6px;
+  border: 1px solid #4cf;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.group-key {
+  font-weight: bold;
+  color: #4cf;
+}

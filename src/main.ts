@@ -47,7 +47,12 @@ new CommandController(
 
 new FormationOutlines(scene, unitManager)
 
-new Hud(document.getElementById('hud') as HTMLElement, engine, unitManager)
+new Hud(
+  document.getElementById('hud') as HTMLElement,
+  document.getElementById('groups') as HTMLElement,
+  engine,
+  unitManager,
+)
 
 engine.runRenderLoop(() => scene.render())
 window.addEventListener('resize', () => engine.resize())
