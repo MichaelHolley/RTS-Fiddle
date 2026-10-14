@@ -4,6 +4,7 @@ import { RtsCamera } from './camera/RtsCamera'
 import { CommandController } from './input/CommandController'
 import { SelectionController } from './input/SelectionController'
 import { createWorld } from './scene/createWorld'
+import { Hud } from './ui/Hud'
 import { MoveMarker } from './ui/MoveMarker'
 import { SelectionBox } from './ui/SelectionBox'
 import { UnitManager } from './units/UnitManager'
@@ -33,6 +34,8 @@ new SelectionController(
 )
 
 new CommandController(scene, canvas, ground, rtsCamera, unitManager, new MoveMarker(scene))
+
+new Hud(document.getElementById('hud') as HTMLElement, engine, unitManager)
 
 engine.runRenderLoop(() => scene.render())
 window.addEventListener('resize', () => engine.resize())
