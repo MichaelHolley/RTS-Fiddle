@@ -1,10 +1,7 @@
-import { Color3, MeshBuilder, Vector3 } from '@babylonjs/core'
 import type { LinesMesh, Scene } from '@babylonjs/core'
 import type { Formation } from '../units/Formation'
 import type { UnitManager } from '../units/UnitManager'
-
-const LIFT = 0.05
-const COLOR = new Color3(1, 0.9, 0.2)
+import { createOutline, placeOutline } from './outline'
 
 export class FormationOutlines {
   private readonly scene: Scene
@@ -25,25 +22,10 @@ export class FormationOutlines {
       this.outlines.delete(formation)
     }
     for (const formation of formations) {
-      if (!this.outlines.has(formation)) this.outlines.set(formation, this.createOutline(formation))
+      if (this.outlines.has(formation)) continue
+      const outline = createOutline(this.scene)
+      placeOutline(outline, formation.destination, formation.facing, formation.width, formation.depth)
+      this.outlines.set(formation, outline)
     }
-  }
-
-  private createOutline({ destination, facing, width, depth }: Formation): LinesMesh {
-    const x = width / 2
-    const z = depth / 2
-    const points = [
-      new Vector3(-x, 0, -z),
-      new Vector3(x, 0, -z),
-      new Vector3(x, 0, z),
-      new Vector3(-x, 0, z),
-      new Vector3(-x, 0, -z),
-    ]
-    const outline = MeshBuilder.CreateLines('formationOutline', { points }, this.scene)
-    outline.color = COLOR
-    outline.isPickable = false
-    outline.position.set(destination.x, destination.y + LIFT, destination.z)
-    outline.rotation.y = facing
-    return outline
   }
 }

@@ -1,20 +1,34 @@
 import { Vector3 } from '@babylonjs/core'
 import type { AbstractMesh, Scene } from '@babylonjs/core'
+import { DRAG_THRESHOLD_PX } from '../config'
 import type { RtsCamera } from '../camera/RtsCamera'
+import type { FormationPreview } from '../ui/FormationPreview'
 import type { MoveMarker } from '../ui/MoveMarker'
+import { Formation } from '../units/Formation'
 import type { Unit } from '../units/Unit'
 import type { UnitManager } from '../units/UnitManager'
-import { Formation } from '../units/Formation'
-import { assignSlots, squareLayout } from './formation'
+import { assignSlots, planLine, planSquare } from './formation'
+import type { FormationPlan } from './formation'
 
 const RIGHT_BUTTON = 2
 
+interface Drag {
+  pointerId: number
+  startX: number
+  startY: number
+  anchor: Vector3
+  plan: FormationPlan | null
+}
+
 export class CommandController {
   private readonly scene: Scene
+  private readonly canvas: HTMLCanvasElement
   private readonly ground: AbstractMesh
   private readonly rtsCamera: RtsCamera
   private readonly unitManager: UnitManager
   private readonly moveMarker: MoveMarker
+  private readonly preview: FormationPreview
+  private drag: Drag | null = null
 
   constructor(
     scene: Scene,
@@ -23,31 +37,68 @@ export class CommandController {
     rtsCamera: RtsCamera,
     unitManager: UnitManager,
     moveMarker: MoveMarker,
+    preview: FormationPreview,
   ) {
     this.scene = scene
+    this.canvas = canvas
     this.ground = ground
     this.rtsCamera = rtsCamera
     this.unitManager = unitManager
     this.moveMarker = moveMarker
+    this.preview = preview
 
     canvas.addEventListener('pointerdown', this.onPointerDown)
+    canvas.addEventListener('pointermove', this.onPointerMove)
+    canvas.addEventListener('pointerup', this.onPointerUp)
+    canvas.addEventListener('pointercancel', this.onPointerCancel)
   }
 
   private readonly onPointerDown = (e: PointerEvent): void => {
-    if (e.button !== RIGHT_BUTTON || this.rtsCamera.isRotating) return
+    if (e.button !== RIGHT_BUTTON || this.rtsCamera.isRotating || this.drag) return
+    if (this.unitManager.selectedCount === 0) return
+    const anchor = this.pickGround(e)
+    if (!anchor) return
+    this.canvas.setPointerCapture(e.pointerId)
+    this.drag = { pointerId: e.pointerId, startX: e.offsetX, startY: e.offsetY, anchor, plan: null }
+  }
+
+  private readonly onPointerMove = (e: PointerEvent): void => {
+    const { drag } = this
+    if (!drag || e.pointerId !== drag.pointerId) return
+    if (!drag.plan && Math.hypot(e.offsetX - drag.startX, e.offsetY - drag.startY) <= DRAG_THRESHOLD_PX) return
+    const end = this.pickGround(e)
+    if (!end) return
+    drag.plan = planLine(drag.anchor, end, this.unitManager.selectedCount)
+    this.preview.show(drag.plan)
+  }
+
+  private readonly onPointerUp = (e: PointerEvent): void => {
+    const { drag } = this
+    if (e.button !== RIGHT_BUTTON || !drag || e.pointerId !== drag.pointerId) return
+    this.endDrag()
+
     const selected = this.unitManager.selected()
     if (selected.length === 0) return
-
-    const pick = this.scene.pick(e.offsetX, e.offsetY, (mesh) => mesh === this.ground)
-    const destination = pick.pickedPoint
-    if (!pick.hit || !destination) return
-
     const centroid = centroidOf(selected)
-    const facing = Math.atan2(destination.x - centroid.x, destination.z - centroid.z)
-    const layout = squareLayout(selected.length)
-    const slots = assignSlots(selected, layout, facing)
-    this.unitManager.issueMove(new Formation(centroid, destination, facing, layout.width, layout.depth, slots))
-    this.moveMarker.play(destination)
+    const plan = drag.plan ?? planSquare(centroid, drag.anchor, selected.length)
+    const slots = assignSlots(selected, plan.layout, plan.facing)
+    const { layout, center, facing } = plan
+    this.unitManager.issueMove(new Formation(centroid, center, facing, layout.width, layout.depth, slots))
+    if (!drag.plan) this.moveMarker.play(drag.anchor)
+  }
+
+  private readonly onPointerCancel = (e: PointerEvent): void => {
+    if (e.pointerId === this.drag?.pointerId) this.endDrag()
+  }
+
+  private endDrag(): void {
+    this.drag = null
+    this.preview.hide()
+  }
+
+  private pickGround(e: PointerEvent): Vector3 | null {
+    const pick = this.scene.pick(e.offsetX, e.offsetY, (mesh) => mesh === this.ground)
+    return pick.hit ? pick.pickedPoint : null
   }
 }
 

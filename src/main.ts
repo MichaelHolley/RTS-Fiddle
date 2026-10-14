@@ -5,6 +5,7 @@ import { CommandController } from './input/CommandController'
 import { SelectionController } from './input/SelectionController'
 import { createWorld } from './scene/createWorld'
 import { FormationOutlines } from './ui/FormationOutlines'
+import { FormationPreview } from './ui/FormationPreview'
 import { Hud } from './ui/Hud'
 import { MoveMarker } from './ui/MoveMarker'
 import { SelectionBox } from './ui/SelectionBox'
@@ -34,7 +35,15 @@ new SelectionController(
   new SelectionBox(document.getElementById('selection-box') as HTMLElement),
 )
 
-new CommandController(scene, canvas, ground, rtsCamera, unitManager, new MoveMarker(scene))
+new CommandController(
+  scene,
+  canvas,
+  ground,
+  rtsCamera,
+  unitManager,
+  new MoveMarker(scene),
+  new FormationPreview(scene),
+)
 
 new FormationOutlines(scene, unitManager)
 
