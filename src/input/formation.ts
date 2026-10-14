@@ -6,8 +6,6 @@ import type { Unit } from '../units/Unit'
 export interface GridLayout {
   /** Rows ordered front to back, each ordered left to right. */
   rows: SlotOffset[][]
-  width: number
-  depth: number
 }
 
 export interface FormationPlan {
@@ -23,7 +21,7 @@ export function gridLayout(count: number, cols = Math.ceil(Math.sqrt(count)), sp
     const z = ((rowCount - 1) / 2 - r) * spacing
     return Array.from({ length: inRow }, (_, c) => ({ x: (c - (inRow - 1) / 2) * spacing, z }))
   })
-  return { rows, width: cols * spacing, depth: rowCount * spacing }
+  return { rows }
 }
 
 export function planSquare(from: Vector3, destination: Vector3, count: number): FormationPlan {

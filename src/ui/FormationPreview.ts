@@ -1,21 +1,33 @@
 import type { LinesMesh, Scene } from '@babylonjs/core'
-import type { FormationPlan } from '../input/formation'
-import { createOutline, placeOutline } from './outline'
+import type { FormationPlan, GridLayout } from '../input/formation'
+import { createSlotMarkers, placeSlotMarkers } from './slotMarkers'
 
 export class FormationPreview {
-  private readonly outline: LinesMesh
+  private readonly scene: Scene
+  private markers: LinesMesh | null = null
+  private shape = ''
 
   constructor(scene: Scene) {
-    this.outline = createOutline(scene)
-    this.outline.setEnabled(false)
+    this.scene = scene
   }
 
   show({ center, facing, layout }: FormationPlan): void {
-    placeOutline(this.outline, center, facing, layout.width, layout.depth)
-    this.outline.setEnabled(true)
+    // Rebuilding the line mesh compiles a material, so only do it when the slot grid changes.
+    const shape = shapeOf(layout)
+    if (!this.markers || shape !== this.shape) {
+      this.markers?.dispose()
+      this.markers = createSlotMarkers(this.scene, layout.rows.flat())
+      this.shape = shape
+    }
+    placeSlotMarkers(this.markers, center, facing)
+    this.markers.setEnabled(true)
   }
 
   hide(): void {
-    this.outline.setEnabled(false)
+    this.markers?.setEnabled(false)
   }
+}
+
+function shapeOf(layout: GridLayout): string {
+  return layout.rows.map((row) => row.length).join(',')
 }

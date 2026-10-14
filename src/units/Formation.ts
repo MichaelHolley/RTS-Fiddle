@@ -14,8 +14,6 @@ export class Formation {
   readonly center: Vector3
   readonly destination: Vector3
   readonly facing: number
-  readonly width: number
-  readonly depth: number
   readonly slots: Map<Unit, SlotOffset>
 
   private readonly sin: number
@@ -26,15 +24,11 @@ export class Formation {
     start: Vector3,
     destination: Vector3,
     facing: number,
-    width: number,
-    depth: number,
     slots: Map<Unit, SlotOffset>,
   ) {
     this.center = start.clone()
     this.destination = destination.clone()
     this.facing = facing
-    this.width = width
-    this.depth = depth
     this.slots = slots
     this.sin = Math.sin(facing)
     this.cos = Math.cos(facing)

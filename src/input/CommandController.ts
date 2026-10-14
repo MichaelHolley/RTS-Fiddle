@@ -82,8 +82,7 @@ export class CommandController {
     const centroid = centroidOf(selected)
     const plan = drag.plan ?? planSquare(centroid, drag.anchor, selected.length)
     const slots = assignSlots(selected, plan.layout, plan.facing)
-    const { layout, center, facing } = plan
-    this.unitManager.issueMove(new Formation(centroid, center, facing, layout.width, layout.depth, slots))
+    this.unitManager.issueMove(new Formation(centroid, plan.center, plan.facing, slots))
     if (!drag.plan) this.moveMarker.play(drag.anchor)
   }
 

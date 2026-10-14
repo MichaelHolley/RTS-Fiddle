@@ -1,12 +1,12 @@
 import type { LinesMesh, Scene } from '@babylonjs/core'
 import type { Formation } from '../units/Formation'
 import type { UnitManager } from '../units/UnitManager'
-import { createOutline, placeOutline } from './outline'
+import { createSlotMarkers, placeSlotMarkers } from './slotMarkers'
 
-export class FormationOutlines {
+export class FormationMarkers {
   private readonly scene: Scene
   private readonly unitManager: UnitManager
-  private readonly outlines = new Map<Formation, LinesMesh>()
+  private readonly markers = new Map<Formation, LinesMesh>()
 
   constructor(scene: Scene, unitManager: UnitManager) {
     this.scene = scene
@@ -16,16 +16,16 @@ export class FormationOutlines {
 
   private readonly sync = (): void => {
     const { formations } = this.unitManager
-    for (const [formation, outline] of this.outlines) {
+    for (const [formation, markers] of this.markers) {
       if (formations.has(formation)) continue
-      outline.dispose()
-      this.outlines.delete(formation)
+      markers.dispose()
+      this.markers.delete(formation)
     }
     for (const formation of formations) {
-      if (this.outlines.has(formation)) continue
-      const outline = createOutline(this.scene)
-      placeOutline(outline, formation.destination, formation.facing, formation.width, formation.depth)
-      this.outlines.set(formation, outline)
+      if (this.markers.has(formation)) continue
+      const markers = createSlotMarkers(this.scene, formation.slots.values())
+      placeSlotMarkers(markers, formation.destination, formation.facing)
+      this.markers.set(formation, markers)
     }
   }
 }
