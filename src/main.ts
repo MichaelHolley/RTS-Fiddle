@@ -1,5 +1,6 @@
 import './style.css'
-import { ArcRotateCamera, Color4, Engine, Scene, Vector3 } from '@babylonjs/core'
+import { Color4, Engine, Scene } from '@babylonjs/core'
+import { RtsCamera } from './camera/RtsCamera'
 import { createWorld } from './scene/createWorld'
 
 const canvas = document.getElementById('game') as HTMLCanvasElement
@@ -7,8 +8,7 @@ const engine = new Engine(canvas, true)
 const scene = new Scene(engine)
 scene.clearColor = new Color4(0.06, 0.07, 0.09, 1)
 
-// Temporary fixed camera until the RTS camera lands in M2
-scene.activeCamera = new ArcRotateCamera('camera', Math.PI / 4, 0.9, 80, Vector3.Zero(), scene)
+new RtsCamera(scene, canvas)
 
 createWorld(scene)
 
