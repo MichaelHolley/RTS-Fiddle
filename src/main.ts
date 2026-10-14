@@ -4,6 +4,7 @@ import { RtsCamera } from './camera/RtsCamera'
 import { CommandController } from './input/CommandController'
 import { SelectionController } from './input/SelectionController'
 import { createWorld } from './scene/createWorld'
+import { FormationOutlines } from './ui/FormationOutlines'
 import { Hud } from './ui/Hud'
 import { MoveMarker } from './ui/MoveMarker'
 import { SelectionBox } from './ui/SelectionBox'
@@ -34,6 +35,8 @@ new SelectionController(
 )
 
 new CommandController(scene, canvas, ground, rtsCamera, unitManager, new MoveMarker(scene))
+
+new FormationOutlines(scene, unitManager)
 
 new Hud(document.getElementById('hud') as HTMLElement, engine, unitManager)
 

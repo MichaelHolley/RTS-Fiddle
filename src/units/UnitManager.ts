@@ -1,6 +1,7 @@
 import { Color3, Matrix, Mesh, MeshBuilder, Quaternion, StandardMaterial, Vector3 } from '@babylonjs/core'
 import type { Scene } from '@babylonjs/core'
 import { FORMATION_SPACING, MAP_SIZE, UNIT_COUNT, UNIT_RADIUS, UNIT_SPEED } from '../config'
+import type { Formation } from './Formation'
 import type { Unit } from './Unit'
 
 const UNIT_HEIGHT = 1.8
@@ -14,6 +15,7 @@ const SELECTED_COLOR = Color3.FromHexString('#44ff66')
 
 export class UnitManager {
   readonly units: readonly Unit[]
+  readonly formations = new Set<Formation>()
 
   private readonly mesh: Mesh
   private selectionSize = 0
@@ -47,6 +49,10 @@ export class UnitManager {
   update(dt: number): void {
     const { units } = this
     const step = UNIT_SPEED * dt
+
+    for (const formation of this.formations) {
+      if (!formation.update(dt)) this.formations.delete(formation)
+    }
 
     for (const unit of units) {
       const { position, target } = unit
@@ -95,10 +101,12 @@ export class UnitManager {
     return this.units.filter((unit) => unit.selected)
   }
 
-  issueMove(assignments: Map<number, Vector3>): void {
-    for (const [id, destination] of assignments) {
-      this.units[id].target = destination.clone()
+  issueMove(formation: Formation): void {
+    for (const existing of this.formations) {
+      existing.release(formation.slots.keys())
+      if (existing.slots.size === 0) this.formations.delete(existing)
     }
+    this.formations.add(formation)
   }
 
   private separate(): void {

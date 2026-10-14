@@ -2,6 +2,8 @@ export const UNIT_COUNT = 100
 export const UNIT_SPEED = 6
 export const UNIT_RADIUS = 0.5
 export const FORMATION_SPACING = 1.5
+export const FORMATION_SPEED = 5
+export const FORMATION_REFORM_DISTANCE = 2
 export const MAP_SIZE = 200
 export const CAMERA = {
   minRadius: 10,
