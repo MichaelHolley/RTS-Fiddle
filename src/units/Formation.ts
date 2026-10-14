@@ -51,22 +51,26 @@ export class Formation {
     const remaining = Math.hypot(dx, dz)
     if (remaining === 0 && maxLag <= SETTLE_DISTANCE) return false
 
+    let arrived = remaining === 0
     if (maxLag <= FORMATION_REFORM_DISTANCE) {
       const step = FORMATION_SPEED * dt
       if (remaining <= step) {
         this.center.x = this.destination.x
         this.center.z = this.destination.z
+        arrived = true
       } else {
         this.center.x += (dx / remaining) * step
         this.center.z += (dz / remaining) * step
       }
     }
 
+    const heading = arrived ? this.facing : Math.atan2(dx, dz)
     for (const [unit, offset] of this.slots) {
       const slot = this.slotPosition(offset)
       const target = (unit.target ??= unit.position.clone())
       target.x = slot.x
       target.z = slot.z
+      unit.arrivalHeading = heading
     }
     return true
   }

@@ -65,6 +65,7 @@ export class UnitManager {
         position.x = target.x
         position.z = target.z
         unit.target = null
+        if (unit.arrivalHeading !== null) unit.heading = unit.arrivalHeading
         continue
       }
       unit.heading = Math.atan2(dx, dz)
@@ -211,6 +212,7 @@ function spawnUnits(count: number): Unit[] {
     ),
     target: null,
     heading: 0,
+    arrivalHeading: null,
     selected: false,
   }))
 }
