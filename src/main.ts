@@ -2,6 +2,9 @@ import './style.css'
 import { Color4, Engine, Scene } from '@babylonjs/core'
 import { RtsCamera } from './camera/RtsCamera'
 import { createWorld } from './scene/createWorld'
+import { UnitManager } from './units/UnitManager'
+
+const MAX_FRAME_SECONDS = 0.1
 
 const canvas = document.getElementById('game') as HTMLCanvasElement
 const engine = new Engine(canvas, true)
@@ -11,6 +14,11 @@ scene.clearColor = new Color4(0.06, 0.07, 0.09, 1)
 new RtsCamera(scene, canvas)
 
 createWorld(scene)
+
+const unitManager = new UnitManager(scene)
+scene.onBeforeRenderObservable.add(() => {
+  unitManager.update(Math.min(engine.getDeltaTime() / 1000, MAX_FRAME_SECONDS))
+})
 
 engine.runRenderLoop(() => scene.render())
 window.addEventListener('resize', () => engine.resize())
