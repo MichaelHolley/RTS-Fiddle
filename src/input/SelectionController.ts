@@ -115,11 +115,11 @@ export class SelectionController {
     const height = engine.getRenderHeight()
     const scaleX = canvas.clientWidth / width
     const scaleY = canvas.clientHeight / height
-    const viewport = this.camera.viewport.toGlobalToRef(width, height, this.viewport)
+    this.camera.viewport.toGlobalToRef(width, height, this.viewport)
     const transform = this.scene.getTransformMatrix()
 
     for (const unit of this.unitManager.units) {
-      Vector3.ProjectToRef(unit.position, Matrix.IdentityReadOnly, transform, viewport, screen)
+      Vector3.ProjectToRef(unit.position, Matrix.IdentityReadOnly, transform, this.viewport, screen)
       if (screen.z < 0 || screen.z > 1) continue
       visit(unit.id, screen.x * scaleX, screen.y * scaleY)
     }
