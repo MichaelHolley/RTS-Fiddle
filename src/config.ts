@@ -6,9 +6,10 @@ export const FORMATION_SPEED = 5
 export const FORMATION_REFORM_DISTANCE = 2
 export const MAP_SIZE = 200
 export const CAMERA = {
-  minRadius: 10,
-  maxRadius: 120,
-  beta: 0.9,
+  minDistance: 10,
+  maxDistance: 120,
+  pitch: Math.PI / 2 - 0.9,
+  yaw: Math.PI / 4,
   panSpeed: 1.2,
   rotateSpeed: 2,
   edgePanPx: 12,

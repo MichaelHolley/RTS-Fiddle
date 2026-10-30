@@ -5,12 +5,22 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RTS MVP</title>
+    <style>
+      [data-shallot-bootstrap] {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #0f1217;
+        color: #ddd;
+        font: 13px/20px system-ui, sans-serif;
+      }
+    </style>
   </head>
   <body>
     <canvas id="game"></canvas>
-    <div id="selection-box"></div>
-    <div id="hud"></div>
-    <div id="groups"></div>
+    <div data-shallot-bootstrap data-state="loading" role="status">Loading…</div>
+    <script src="/startup.js"></script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
