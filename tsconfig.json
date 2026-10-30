@@ -5,11 +5,7 @@
   },
   "include": ["src", "vite.config.ts"],
   "exclude": [
-    "src/ui/FormationMarkers.ts",
-    "src/ui/FormationPreview.ts",
     "src/ui/Hud.ts",
-    "src/ui/MoveMarker.ts",
-    "src/ui/SelectionBox.ts",
-    "src/ui/slotMarkers.ts"
+    "src/ui/SelectionBox.ts"
   ]
 }
