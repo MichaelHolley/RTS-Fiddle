@@ -3,9 +3,5 @@
   "compilerOptions": {
     "types": ["bun", "vite/client"]
   },
-  "include": ["src", "vite.config.ts"],
-  "exclude": [
-    "src/ui/Hud.ts",
-    "src/ui/SelectionBox.ts"
-  ]
+  "include": ["src", "vite.config.ts"]
 }
