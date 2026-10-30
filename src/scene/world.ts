@@ -15,14 +15,13 @@ import {
 import type { Plugin, Resource, World } from '@dylanebert/shallot'
 import { Orbit, OrbitMode, OrbitPlugin } from '@dylanebert/shallot/extras'
 import { CAMERA, MAP_SIZE } from '../config'
+import { linear } from './color'
 import { cylinder } from './meshes'
 
 const PROP_COUNT = 20
 const PROP_AREA = MAP_SIZE * 0.9
 
 export const RtsView: Resource<{ camera: number }> = { create: () => ({ camera: 0 }) }
-
-const linear = (channel: number): number => channel ** 2.2
 
 function createLights(world: World): void {
   Object.assign(world.resource(GlobalAmbientLight), { color: 0xd8e4ff, brightness: 380 })

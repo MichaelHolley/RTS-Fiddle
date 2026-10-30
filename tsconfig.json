@@ -7,15 +7,11 @@
   "exclude": [
     "src/input/CommandController.ts",
     "src/input/SelectionController.ts",
-    "src/input/formation.ts",
     "src/ui/FormationMarkers.ts",
     "src/ui/FormationPreview.ts",
     "src/ui/Hud.ts",
     "src/ui/MoveMarker.ts",
     "src/ui/SelectionBox.ts",
-    "src/ui/slotMarkers.ts",
-    "src/units/Formation.ts",
-    "src/units/Unit.ts",
-    "src/units/UnitManager.ts"
+    "src/ui/slotMarkers.ts"
   ]
 }
