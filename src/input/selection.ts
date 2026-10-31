@@ -1,10 +1,11 @@
-import { Devices, InputPlugin, MeshMaterial, Transform } from '@dylanebert/shallot'
+import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
+import { drawLine, Gizmo, GizmoAsset, LinesPlugin, registerGizmo } from '@dylanebert/shallot/extras'
 import { worldToViewport } from '@dylanebert/shallot/rendering'
-import { CLICK_SELECT_RADIUS_PX, DRAG_THRESHOLD_PX, UNIT_CENTER_HEIGHT } from '../config'
+import { CLICK_SELECT_RADIUS_PX, DRAG_THRESHOLD_PX, SELECTION_RING, UNIT_CENTER_HEIGHT } from '../config'
 import { RtsView, WorldPlugin } from '../scene/world'
 import { Selected, Unit } from '../units/components'
-import { UnitMaterials, UnitsPlugin } from '../units/units'
+import { UnitsPlugin } from '../units/units'
 
 const UNITS = [Unit]
 const SELECTED_UNITS = [Unit, Selected]
@@ -29,6 +30,19 @@ export const ControlGroups: Resource<Map<string, number[]>> = { create: () => ne
 
 const point: [number, number, number] = [0, 0, 0]
 
+const SelectionRing: Resource<number> = {
+  create(world) {
+    const { radius, lift, segments, color } = SELECTION_RING
+    const ring = new GizmoAsset()
+    const vertex = (i: number): [number, number, number] => {
+      const angle = (i / segments) * Math.PI * 2
+      return [Math.cos(angle) * radius, lift, Math.sin(angle) * radius]
+    }
+    for (let i = 0; i < segments; i++) drawLine(ring, vertex(i), vertex(i + 1), color)
+    return registerGizmo(world, ring)
+  },
+}
+
 export function selectedUnits(world: World): number[] {
   return Array.from(world.query(SELECTED_UNITS))
 }
@@ -41,15 +55,18 @@ export function selectedCount(world: World): number {
 
 export function setSelection(world: World, eids: Iterable<number>, additive: boolean): void {
   const next = new Set(eids)
-  const { idle, selected } = world.resource(UnitMaterials)
-  const material = world.storage(MeshMaterial).material
+  const handle = world.resource(SelectionRing)
   for (const eid of world.query(UNITS)) {
     const wasSelected = world.has(eid, Selected)
     const isSelected = next.has(eid) || (additive && wasSelected)
     if (isSelected === wasSelected) continue
-    if (isSelected) world.add(eid, Selected)
-    else world.remove(eid, Selected)
-    material.set(eid, (isSelected ? selected : idle).material)
+    if (isSelected) {
+      world.add(eid, Selected)
+      world.add(eid, Gizmo, { handle, width: SELECTION_RING.width })
+    } else {
+      world.remove(eid, Selected)
+      world.remove(eid, Gizmo)
+    }
   }
 }
 
@@ -157,6 +174,6 @@ const SelectionSystem: System = {
 
 export const SelectionPlugin: Plugin = {
   name: 'RtsSelection',
-  dependencies: [InputPlugin, WorldPlugin, UnitsPlugin],
+  dependencies: [InputPlugin, LinesPlugin, WorldPlugin, UnitsPlugin],
   systems: [SelectionSystem],
 }

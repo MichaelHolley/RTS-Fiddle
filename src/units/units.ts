@@ -23,7 +23,6 @@ import {
   UNIT_RADIUS,
   UNIT_SPEED,
 } from '../config'
-import { linearHex } from '../scene/color'
 import { loadGlb } from '../scene/gltf'
 import { Formation, FormationSlot, MoveTarget, Selected, Unit, UnitAnimation } from './components'
 import { slotToWorld } from './formation'
@@ -45,14 +44,11 @@ const UnitModel: Resource<{ idle: MeshHandle; run: MeshHandle[]; palette: number
   create: () => ({ idle: 0 as MeshHandle, run: [], palette: -1 }),
 }
 
-export const UnitMaterials: Resource<{ idle: MaterialHandle; selected: MaterialHandle }> = {
-  create(world) {
-    const materials = world.resource(Materials)
-    const baseColorTexture = world.resource(UnitModel).palette
-    const material = (hex: number): MaterialHandle =>
-      materials.add(StandardMaterial({ baseColor: linearHex(hex), baseColorTexture, perceptualRoughness: 0.6 }))
-    return { idle: material(0xffffff), selected: material(0x7dff8a) }
-  },
+const UnitMaterial: Resource<MaterialHandle> = {
+  create: (world) =>
+    world
+      .resource(Materials)
+      .add(StandardMaterial({ baseColorTexture: world.resource(UnitModel).palette, perceptualRoughness: 0.6 })),
 }
 
 async function loadUnitModel(world: World): Promise<void> {
@@ -293,7 +289,7 @@ function animateUnits(world: World): void {
 }
 
 function spawnUnits(world: World): void {
-  const { idle } = world.resource(UnitMaterials)
+  const material = world.resource(UnitMaterial)
   const mesh = world.resource(UnitModel).idle
   const columns = Math.ceil(Math.sqrt(UNIT_COUNT))
   const rows = Math.ceil(UNIT_COUNT / columns)
@@ -308,7 +304,7 @@ function spawnUnits(world: World): void {
     const cycleLength = RUN_CYCLE_LENGTH * (1 + (Math.random() * 2 - 1) * RUN_CYCLE_JITTER)
     world.add(unit, UnitAnimation, { phase: Math.random(), cycleLength, lastX: x, lastZ: z })
     world.add(unit, MeshInstance, { mesh })
-    world.add(unit, MeshMaterial, idle)
+    world.add(unit, MeshMaterial, material)
   }
 }
 

@@ -21,3 +21,10 @@ export const CAMERA = {
 }
 export const DRAG_THRESHOLD_PX = 4
 export const CLICK_SELECT_RADIUS_PX = 20
+export const SELECTION_RING = {
+  radius: 0.55,
+  lift: 0.03,
+  segments: 24,
+  width: 2,
+  color: 0x5cff7a,
+}
