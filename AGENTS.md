@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Browser 3D RTS prototype: Vite + TypeScript + Shallot (WebGPU ECS engine), Bun. Placeholder meshes only, no external assets.
+Browser 3D RTS prototype: Vite + TypeScript + Shallot (WebGPU ECS engine), Bun. Props are placeholder meshes; units use the Blender-made trooper model.
 
 ## Workflow
 
@@ -16,10 +16,16 @@ This is a vibe-coded MVP:
 - `src/app.ts` – `RtsPlugin`, depends on every plugin below
 - `src/config.ts` – all tuning constants
 - `src/camera/` – RTS camera (drives `Orbit` in Manual mode)
-- `src/units/` – components, unit spawning/movement/separation, formation planning and slot math
+- `src/units/` – components, unit spawning/movement/separation/run animation, formation planning and slot math
 - `src/input/` – selection, control groups, move commands, ground picking
-- `src/scene/` – world setup, mesh helpers, color conversion
+- `src/scene/` – world setup, mesh helpers, GLB loader, color conversion
 - `src/ui/` – world-space line markers and DOM HUD/selection box
+- `assets/trooper.blend` – trooper source: mesh, rig, `Run` action, and the text blocks `build_trooper.py` (rebuilds mesh + rig + palette) and `export_trooper.py` (bakes frames, writes the GLB)
+- `public/models/trooper.glb` – exported unit model
+
+## Unit model
+
+Shallot has no skinning or glTF loader, so the rig is baked: `trooper.glb` holds static meshes `idle` and `run_00`…`run_NN` (Y up, facing +Z, feet at origin) sharing one embedded palette PNG that UVs point into. `animateUnits` swaps each unit's `MeshInstance.mesh` by run phase, advanced by distance moved over `RUN_CYCLE_LENGTH`. To change the model, edit it in Blender and run `export_trooper.py`; `src/scene/gltf.ts` only reads unstrided float POSITION/NORMAL/TEXCOORD_0 with one primitive per mesh.
 
 ## Shallot rules
 

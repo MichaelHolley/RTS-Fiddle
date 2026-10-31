@@ -1,7 +1,7 @@
 import { Devices, InputPlugin, MeshMaterial, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
 import { worldToViewport } from '@dylanebert/shallot/rendering'
-import { CLICK_SELECT_RADIUS_PX, DRAG_THRESHOLD_PX } from '../config'
+import { CLICK_SELECT_RADIUS_PX, DRAG_THRESHOLD_PX, UNIT_CENTER_HEIGHT } from '../config'
 import { RtsView, WorldPlugin } from '../scene/world'
 import { Selected, Unit } from '../units/components'
 import { UnitMaterials, UnitsPlugin } from '../units/units'
@@ -58,7 +58,7 @@ function forEachScreenPosition(world: World, visit: (eid: number, x: number, y: 
   const { translation } = world.storage(Transform)
   for (const eid of world.query(UNITS)) {
     point[0] = translation.x.get(eid)
-    point[1] = translation.y.get(eid)
+    point[1] = translation.y.get(eid) + UNIT_CENTER_HEIGHT
     point[2] = translation.z.get(eid)
     const screen = worldToViewport(world, camera, point)
     if (screen) visit(eid, screen[0], screen[1])

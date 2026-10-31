@@ -1,10 +1,10 @@
 import {
-  capsule,
-  cube,
+  ImageFilterMode,
   Materials,
   Meshes,
   MeshInstance,
   MeshMaterial,
+  registerImage,
   StandardMaterial,
   Transform,
 } from '@dylanebert/shallot'
@@ -15,18 +15,19 @@ import {
   FORMATION_SPACING,
   FORMATION_SPEED,
   MAP_SIZE,
+  RUN_CYCLE_LENGTH,
+  RUN_MIN_SPEED,
   UNIT_COUNT,
+  UNIT_MODEL_URL,
   UNIT_RADIUS,
   UNIT_SPEED,
 } from '../config'
 import { linearHex } from '../scene/color'
-import { mergeMeshes } from '../scene/meshes'
-import { Formation, FormationSlot, MoveTarget, Selected, Unit } from './components'
+import { loadGlb } from '../scene/gltf'
+import { Formation, FormationSlot, MoveTarget, Selected, Unit, UnitAnimation } from './components'
 import { slotToWorld } from './formation'
 import type { Point, SlotOffset } from './formation'
 
-const UNIT_HEIGHT = 1.8
-const UNIT_Y = UNIT_HEIGHT / 2
 const ARRIVE_DISTANCE = 0.1
 const SETTLE_DISTANCE = 0.2
 const MIN_SEPARATION = UNIT_RADIUS * 2
@@ -37,14 +38,37 @@ const UNITS = [Unit]
 const MEMBERS = [Unit, FormationSlot]
 const MOVERS = [Unit, MoveTarget]
 const FORMATIONS = [Formation]
+const ANIMATED = [Unit, UnitAnimation]
+
+const UnitModel: Resource<{ idle: MeshHandle; run: MeshHandle[]; palette: number }> = {
+  create: () => ({ idle: 0 as MeshHandle, run: [], palette: -1 }),
+}
 
 export const UnitMaterials: Resource<{ idle: MaterialHandle; selected: MaterialHandle }> = {
   create(world) {
     const materials = world.resource(Materials)
+    const baseColorTexture = world.resource(UnitModel).palette
     const material = (hex: number): MaterialHandle =>
-      materials.add(StandardMaterial({ baseColor: linearHex(hex), perceptualRoughness: 0.9 }))
-    return { idle: material(0xdddddd), selected: material(0x44ff66) }
+      materials.add(StandardMaterial({ baseColor: linearHex(hex), baseColorTexture, perceptualRoughness: 0.6 }))
+    return { idle: material(0xffffff), selected: material(0x7dff8a) }
   },
+}
+
+async function loadUnitModel(world: World): Promise<void> {
+  const { meshes, images } = await loadGlb(UNIT_MODEL_URL)
+  const registry = world.resource(Meshes)
+  const add = (name: string): MeshHandle => {
+    const geometry = meshes.get(name)
+    if (!geometry) throw new Error(`${UNIT_MODEL_URL} has no mesh "${name}"`)
+    return registry.add({ name: `trooper ${name}`, ...geometry })
+  }
+  const model = world.resource(UnitModel)
+  model.idle = add('idle')
+  model.run = [...meshes.keys()].filter((name) => name.startsWith('run_')).sort().map(add)
+  const nearest = ImageFilterMode.Nearest
+  model.palette = registerImage(world, images[0], {
+    sampler: { magFilter: nearest, minFilter: nearest, mipmapFilter: nearest },
+  })
 }
 
 interface FormationState {
@@ -243,22 +267,44 @@ function separateUnits(world: World): void {
   }
 }
 
-function spawnUnits(world: World, mesh: MeshHandle): void {
+// Steps are measured from actual displacement so separation pushes and formation catch-up animate too.
+function animateUnits(world: World): void {
+  const { idle, run } = world.resource(UnitModel)
+  const { translation } = world.storage(Transform)
+  const animation = world.storage(UnitAnimation)
+  const { mesh } = world.storage(MeshInstance)
+  const minStep = RUN_MIN_SPEED * world.time.deltaTime
+
+  for (const eid of world.query(ANIMATED)) {
+    const x = translation.x.get(eid)
+    const z = translation.z.get(eid)
+    const step = Math.hypot(x - animation.lastX.get(eid), z - animation.lastZ.get(eid))
+    animation.lastX.set(eid, x)
+    animation.lastZ.set(eid, z)
+    let frame = idle
+    if (step > minStep) {
+      const phase = (animation.phase.get(eid) + step / RUN_CYCLE_LENGTH) % 1
+      animation.phase.set(eid, phase)
+      frame = run[Math.floor(phase * run.length)]
+    }
+    if (mesh.get(eid) !== frame) mesh.set(eid, frame)
+  }
+}
+
+function spawnUnits(world: World): void {
   const { idle } = world.resource(UnitMaterials)
+  const mesh = world.resource(UnitModel).idle
   const columns = Math.ceil(Math.sqrt(UNIT_COUNT))
   const rows = Math.ceil(UNIT_COUNT / columns)
   const offsetX = ((columns - 1) * FORMATION_SPACING) / 2
   const offsetZ = ((rows - 1) * FORMATION_SPACING) / 2
   for (let id = 0; id < UNIT_COUNT; id++) {
+    const x = (id % columns) * FORMATION_SPACING - offsetX
+    const z = Math.floor(id / columns) * FORMATION_SPACING - offsetZ
     const unit = world.create()
     world.add(unit, Unit)
-    world.add(unit, Transform, {
-      translation: [
-        (id % columns) * FORMATION_SPACING - offsetX,
-        UNIT_Y,
-        Math.floor(id / columns) * FORMATION_SPACING - offsetZ,
-      ],
-    })
+    world.add(unit, Transform, { translation: [x, 0, z] })
+    world.add(unit, UnitAnimation, { phase: Math.random(), lastX: x, lastZ: z })
     world.add(unit, MeshInstance, { mesh })
     world.add(unit, MeshMaterial, idle)
   }
@@ -284,16 +330,20 @@ const SeparationSystem: System = {
   update: separateUnits,
 }
 
+const AnimationSystem: System = {
+  name: 'unitAnimation',
+  group: 'fixed',
+  after: [SeparationSystem],
+  update: animateUnits,
+}
+
 export const UnitsPlugin: Plugin = {
   name: 'RtsUnits',
   recovery: 'stateless',
-  components: [Unit, Selected, MoveTarget, Formation, FormationSlot],
-  systems: [FormationSystem, MoveSystem, SeparationSystem],
-  initialize(world) {
-    const geometry = mergeMeshes([
-      capsule(0.3, UNIT_HEIGHT - 0.6),
-      { ...cube([0.2, 0.2, 0.3]), offset: [0, 0.5, 0.35] },
-    ])
-    spawnUnits(world, world.resource(Meshes).add({ name: 'unit', ...geometry }))
+  components: [Unit, Selected, MoveTarget, Formation, FormationSlot, UnitAnimation],
+  systems: [FormationSystem, MoveSystem, SeparationSystem, AnimationSystem],
+  async initialize(world) {
+    await loadUnitModel(world)
+    spawnUnits(world)
   },
 }
