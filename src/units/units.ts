@@ -15,6 +15,7 @@ import {
   FORMATION_SPACING,
   FORMATION_SPEED,
   MAP_SIZE,
+  RUN_CYCLE_JITTER,
   RUN_CYCLE_LENGTH,
   RUN_MIN_SPEED,
   UNIT_COUNT,
@@ -283,7 +284,7 @@ function animateUnits(world: World): void {
     animation.lastZ.set(eid, z)
     let frame = idle
     if (step > minStep) {
-      const phase = (animation.phase.get(eid) + step / RUN_CYCLE_LENGTH) % 1
+      const phase = (animation.phase.get(eid) + step / animation.cycleLength.get(eid)) % 1
       animation.phase.set(eid, phase)
       frame = run[Math.floor(phase * run.length)]
     }
@@ -304,7 +305,8 @@ function spawnUnits(world: World): void {
     const unit = world.create()
     world.add(unit, Unit)
     world.add(unit, Transform, { translation: [x, 0, z] })
-    world.add(unit, UnitAnimation, { phase: Math.random(), lastX: x, lastZ: z })
+    const cycleLength = RUN_CYCLE_LENGTH * (1 + (Math.random() * 2 - 1) * RUN_CYCLE_JITTER)
+    world.add(unit, UnitAnimation, { phase: Math.random(), cycleLength, lastX: x, lastZ: z })
     world.add(unit, MeshInstance, { mesh })
     world.add(unit, MeshMaterial, idle)
   }
