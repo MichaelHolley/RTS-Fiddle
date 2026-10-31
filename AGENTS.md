@@ -2,6 +2,14 @@
 
 Browser 3D RTS prototype: Vite + TypeScript + Shallot (WebGPU ECS engine), Bun. Props are placeholder meshes; units use the Blender-made trooper model.
 
+## User context
+
+The user has very little game dev experience; assume none. Be proactive:
+
+- Bring forward technical recommendations while implementing, especially performance or efficiency wins (e.g. moving per-unit work to a shader, GPU instancing, spatial partitioning for separation/picking).
+- Raise game design ideas, mechanics, or concerns of high value (RTS pitfalls like pathfinding at scale, selection UX, balance, scope creep), briefly and with a recommendation.
+- Explain game-dev jargon in a sentence when first used. Skip low-value suggestions.
+
 ## Workflow
 
 This is a vibe-coded MVP:
