@@ -31,10 +31,29 @@ This is a vibe-coded MVP:
 - `assets/trooper.blend` – trooper source: mesh, rig, `Run` action, and the text blocks `build_trooper.py` (rebuilds mesh + rig + palette) and `export_trooper.py` (bakes frames, writes the GLB)
 - `public/models/trooper.glb` – exported unit model
 
-## Units and soldiers
+## Total War reference
 
-Terms follow Total War. A **unit** is the selectable block (`Unit` entity: center, destination, facing, files × ranks); a **soldier** is one trooper (`Soldier` entity: owning unit plus a fixed slot in the unit's formation). **Files** are columns and **ranks** are rows; the front rank's width is the **frontage**. "Group" is reserved for Total War's Ctrl+G grouping of several units. Selection, control groups and orders work on units, never single soldiers. Right-click moves the selection keeping its shape and turns it toward the direction of travel; right-drag sets the frontage line, split between units by soldier count, facing perpendicular to the drag.
+Controls, terms and mechanics copy Total War (Warhammer / Three Kingdoms era). When adding or changing a mechanic, match how Total War does it unless told otherwise, and call out any deliberate deviation.
 
+### Units and soldiers
+
+A **unit** is the selectable block (`Unit` entity: center, destination, facing, files × ranks); a **soldier** is one trooper (`Soldier` entity: owning unit plus a fixed slot in the unit's formation). **Files** are columns and **ranks** are rows; the front rank's width is the **frontage**. "Group" is reserved for Total War's Ctrl+G grouping of several units. Selection, control groups and orders work on units, never single soldiers.
+
+### Controls
+
+- **Camera** (`src/camera/rtsCamera.ts`): WASD/arrows or screen-edge pan, Q/E or middle-drag rotate, wheel zoom. Pan speed scales with zoom distance.
+- **Select**: left-click picks the unit of the nearest soldier on screen within `CLICK_SELECT_RADIUS_PX`; clicking empty ground deselects. Left-drag box-selects every unit with any soldier inside the box. Shift adds to the selection. Ctrl+A selects all.
+- **Control groups**: Ctrl+digit stores the selection (an empty selection clears the group); digit recalls it, Shift+digit adds it. The HUD shows each group's key and unit count.
+- **Move** (right-click): the selection keeps its relative layout and each unit its frontage, rotated to face the direction of travel from the selection's center to the click (`planMove`). A ring pings the click point.
+- **Frontage** (right-drag past `DRAG_THRESHOLD_PX`): the drag line becomes the combined front rank (`planFrontage`). Units are placed in their current left-to-right order along the line, each getting width in proportion to its soldier count with `UNIT_GAP` between units and at least `UNIT_MIN_FILES` files. The drag direction is the units' right, so dragging left-to-right on screen faces away from the camera. Footprint outlines with a facing arrow preview the result while dragging.
+- Selected units show a ring under each soldier and their destination footprint until they arrive.
+
+### Formation movement
+
+- A unit marches as a block: its center advances at `UNIT_SPEED` toward the destination only while every soldier is within `UNIT_REFORM_DISTANCE` of its slot, so the formation waits for stragglers instead of stretching out.
+- Soldiers run (`SOLDIER_SPEED`, faster than `UNIT_SPEED` so they can catch up) to their slot, face the march direction while moving and the unit's facing once it stops. Idle soldiers pushed more than `UNIT_DRIFT_DISTANCE` off their slot walk back.
+- On a new order, `assignSlots` gives the front ranks to the soldiers already most forward along the new facing, left to right, so paths cross as little as possible. Soldiers keep that slot until the next order.
+- Soldiers push apart to stay `2 × SOLDIER_RADIUS` from each other, across units as well as within them, using a uniform grid (spatial hash) so each soldier only checks nearby cells.
 ## Soldier model
 
 Shallot has no skinning or glTF loader, so the rig is baked: `trooper.glb` holds static meshes `idle` and `run_00`…`run_NN` (Y up, facing +Z, feet at origin), plus the same set prefixed `lod_` from the low-detail `Trooper_LOD` mesh, all sharing one embedded palette PNG that UVs point into. `animateSoldiers` swaps each soldier's `MeshInstance.mesh` by run phase, advanced by distance moved over `RUN_CYCLE_LENGTH`, using the `lod_` frames beyond `SOLDIER_LOD_DISTANCE` from the camera. To change the model, edit it in Blender and run `export_trooper.py`; `src/scene/gltf.ts` only reads unstrided float POSITION/NORMAL/TEXCOORD_0 with one primitive per mesh.
