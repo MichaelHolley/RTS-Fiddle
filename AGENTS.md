@@ -33,7 +33,7 @@ This is a vibe-coded MVP:
 
 ## Unit model
 
-Shallot has no skinning or glTF loader, so the rig is baked: `trooper.glb` holds static meshes `idle` and `run_00`…`run_NN` (Y up, facing +Z, feet at origin) sharing one embedded palette PNG that UVs point into. `animateUnits` swaps each unit's `MeshInstance.mesh` by run phase, advanced by distance moved over `RUN_CYCLE_LENGTH`. To change the model, edit it in Blender and run `export_trooper.py`; `src/scene/gltf.ts` only reads unstrided float POSITION/NORMAL/TEXCOORD_0 with one primitive per mesh.
+Shallot has no skinning or glTF loader, so the rig is baked: `trooper.glb` holds static meshes `idle` and `run_00`…`run_NN` (Y up, facing +Z, feet at origin), plus the same set prefixed `lod_` from the low-detail `Trooper_LOD` mesh, all sharing one embedded palette PNG that UVs point into. `animateUnits` swaps each unit's `MeshInstance.mesh` by run phase, advanced by distance moved over `RUN_CYCLE_LENGTH`, using the `lod_` frames beyond `UNIT_LOD_DISTANCE` from the camera. To change the model, edit it in Blender and run `export_trooper.py`; `src/scene/gltf.ts` only reads unstrided float POSITION/NORMAL/TEXCOORD_0 with one primitive per mesh.
 
 ## Shallot rules
 
