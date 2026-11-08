@@ -1,4 +1,5 @@
 import type { World } from '@dylanebert/shallot'
+import { blockBrowserShortcuts } from '../input/browserShortcuts'
 import { ControlGroups, selectedCount, SelectionDrag } from '../input/selection'
 import { Selected, Soldier, Unit } from '../units/components'
 import { SoldierLod } from '../units/units'
@@ -45,6 +46,7 @@ export function mountUi(container: HTMLElement, world: World): () => void {
   const box = element(container, 'selection-box')
   const drag = world.resource(SelectionDrag)
   const groups = world.resource(ControlGroups)
+  const unblockShortcuts = blockBrowserShortcuts()
 
   let frames = 0
   let lastRefresh = performance.now()
@@ -86,6 +88,7 @@ export function mountUi(container: HTMLElement, world: World): () => void {
   const interval = setInterval(() => refresh(performance.now()), REFRESH_MS)
 
   return () => {
+    unblockShortcuts()
     clearInterval(interval)
     cancelAnimationFrame(raf)
     hud.remove()
