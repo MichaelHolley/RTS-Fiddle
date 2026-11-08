@@ -11,6 +11,7 @@ export const SOLDIER_SPEED = 6
 export const SOLDIER_RADIUS = 0.5
 export const SOLDIER_CENTER_HEIGHT = 0.9
 export const SOLDIER_MODEL_URL = '/models/trooper.glb'
+export const SOLDIER_LOD_DISTANCE = 35
 export const RUN_CYCLE_LENGTH = 3
 export const RUN_CYCLE_JITTER = 0.15
 export const RUN_MIN_SPEED = 1

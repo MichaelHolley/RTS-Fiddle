@@ -1,4 +1,5 @@
 import {
+  Devices,
   ImageFilterMode,
   Materials,
   Meshes,
@@ -18,6 +19,7 @@ import {
   RUN_CYCLE_LENGTH,
   RUN_MIN_SPEED,
   SOLDIER_COUNT,
+  SOLDIER_LOD_DISTANCE,
   SOLDIER_MODEL_URL,
   SOLDIER_RADIUS,
   SOLDIER_SPEED,
@@ -30,11 +32,15 @@ import {
   UNIT_START_FILES,
 } from '../config'
 import { loadGlb } from '../scene/gltf'
+import { RtsView, WorldPlugin } from '../scene/world'
 import { MoveTarget, Selected, Soldier, SoldierAnimation, Unit } from './components'
 import { gridLayout, slotToWorld } from './formation'
 import type { Point, SlotOffset } from './formation'
 
 const ARRIVE_DISTANCE = 0.1
+const LOD_DISTANCE_SQ = SOLDIER_LOD_DISTANCE * SOLDIER_LOD_DISTANCE
+const LOD_DEBUG_KEY = 'KeyL'
+const LOD_DEBUG_TINT = [1, 0.1, 1, 1] as const
 const DEPLOY_LINES = 2
 const MIN_SEPARATION = SOLDIER_RADIUS * 2
 const GRID_COLUMNS = Math.ceil(MAP_SIZE / MIN_SEPARATION)
@@ -45,15 +51,52 @@ const SOLDIERS = [Soldier]
 const MOVERS = [Soldier, MoveTarget]
 const ANIMATED = [Soldier, SoldierAnimation]
 
-const SoldierModel: Resource<{ idle: MeshHandle; run: MeshHandle[]; palette: number }> = {
-  create: () => ({ idle: 0 as MeshHandle, run: [], palette: -1 }),
+interface SoldierFrames {
+  idle: MeshHandle
+  run: MeshHandle[]
 }
 
-const SoldierMaterial: Resource<MaterialHandle> = {
-  create: (world) =>
-    world
-      .resource(Materials)
-      .add(StandardMaterial({ baseColorTexture: world.resource(SoldierModel).palette, perceptualRoughness: 0.6 })),
+const SoldierModel: Resource<{ detail: SoldierFrames; lod: SoldierFrames; palette: number }> = {
+  create: () => ({
+    detail: { idle: 0 as MeshHandle, run: [] },
+    lod: { idle: 0 as MeshHandle, run: [] },
+    palette: -1,
+  }),
+}
+
+const soldierMaterial =
+  (baseColor?: readonly [number, number, number, number]): Resource<MaterialHandle>['create'] =>
+  (world) =>
+    world.resource(Materials).add(
+      StandardMaterial({
+        baseColor,
+        baseColorTexture: world.resource(SoldierModel).palette,
+        perceptualRoughness: 0.6,
+      }),
+    )
+
+const SoldierMaterial: Resource<MaterialHandle> = { create: soldierMaterial() }
+const LodDebugMaterial: Resource<MaterialHandle> = { create: soldierMaterial(LOD_DEBUG_TINT) }
+
+/** Debug view: L tints soldiers drawn with the LOD mesh. */
+export const SoldierLod: Resource<{ highlight: boolean; count: number }> = {
+  create: () => ({ highlight: false, count: 0 }),
+}
+
+interface Point3 {
+  x: number
+  y: number
+  z: number
+}
+
+function cameraPosition(world: World): Point3 {
+  const { translation } = world.storage(Transform)
+  const camera = world.resource(RtsView).camera
+  return { x: translation.x.get(camera), y: translation.y.get(camera), z: translation.z.get(camera) }
+}
+
+function usesLod(camera: Point3, x: number, z: number): boolean {
+  return (x - camera.x) ** 2 + camera.y ** 2 + (z - camera.z) ** 2 > LOD_DISTANCE_SQ
 }
 
 async function loadSoldierModel(world: World): Promise<void> {
@@ -64,9 +107,13 @@ async function loadSoldierModel(world: World): Promise<void> {
     if (!geometry) throw new Error(`${SOLDIER_MODEL_URL} has no mesh "${name}"`)
     return registry.add({ name: `trooper ${name}`, ...geometry })
   }
+  const frames = (prefix: string): SoldierFrames => ({
+    idle: add(`${prefix}idle`),
+    run: [...meshes.keys()].filter((name) => name.startsWith(`${prefix}run_`)).sort().map(add),
+  })
   const model = world.resource(SoldierModel)
-  model.idle = add('idle')
-  model.run = [...meshes.keys()].filter((name) => name.startsWith('run_')).sort().map(add)
+  model.detail = frames('')
+  model.lod = frames('lod_')
   const nearest = ImageFilterMode.Nearest
   model.palette = registerImage(world, images[0], {
     sampler: { magFilter: nearest, minFilter: nearest, mipmapFilter: nearest },
@@ -266,8 +313,9 @@ function separateSoldiers(world: World): void {
 
 // Steps are measured from actual displacement so separation pushes and formation catch-up animate too.
 function animateSoldiers(world: World): void {
-  const { idle, run } = world.resource(SoldierModel)
+  const { detail, lod } = world.resource(SoldierModel)
   const { translation } = world.storage(Transform)
+  const camera = cameraPosition(world)
   const animation = world.storage(SoldierAnimation)
   const { mesh } = world.storage(MeshInstance)
   const minStep = RUN_MIN_SPEED * world.time.deltaTime
@@ -278,6 +326,7 @@ function animateSoldiers(world: World): void {
     const step = Math.hypot(x - animation.lastX.get(eid), z - animation.lastZ.get(eid))
     animation.lastX.set(eid, x)
     animation.lastZ.set(eid, z)
+    const { idle, run } = usesLod(camera, x, z) ? lod : detail
     let frame = idle
     if (step > minStep) {
       const phase = (animation.phase.get(eid) + step / animation.cycleLength.get(eid)) % 1
@@ -296,7 +345,7 @@ function spawnSoldier(world: World, unit: number, position: Point, facing: numbe
   setHeading(world.storage(Transform).rotation, soldier, facing)
   const cycleLength = RUN_CYCLE_LENGTH * (1 + (Math.random() * 2 - 1) * RUN_CYCLE_JITTER)
   world.add(soldier, SoldierAnimation, { phase: Math.random(), cycleLength, lastX: x, lastZ: z })
-  world.add(soldier, MeshInstance, { mesh: world.resource(SoldierModel).idle })
+  world.add(soldier, MeshInstance, { mesh: world.resource(SoldierModel).detail.idle })
   world.add(soldier, MeshMaterial, world.resource(SoldierMaterial))
 }
 
@@ -323,6 +372,23 @@ function spawnArmy(world: World): void {
     for (const row of layout.rows) {
       for (const slot of row) spawnSoldier(world, unit, slotToWorld(center, facing, slot, position), facing, slot)
     }
+  }
+}
+
+function updateLodDebug(world: World): void {
+  const state = world.resource(SoldierLod)
+  if (world.resource(Devices).keys.pressed.has(LOD_DEBUG_KEY)) state.highlight = !state.highlight
+  const normal = world.resource(SoldierMaterial).material
+  const tinted = world.resource(LodDebugMaterial).material
+  const { translation } = world.storage(Transform)
+  const { material } = world.storage(MeshMaterial)
+  const camera = cameraPosition(world)
+  state.count = 0
+  for (const eid of world.query(SOLDIERS)) {
+    const far = usesLod(camera, translation.x.get(eid), translation.z.get(eid))
+    if (far) state.count++
+    const wanted = state.highlight && far ? tinted : normal
+    if (material.get(eid) !== wanted) material.set(eid, wanted)
   }
 }
 
@@ -353,11 +419,18 @@ const AnimationSystem: System = {
   update: animateSoldiers,
 }
 
+const LodDebugSystem: System = {
+  name: 'soldierLodDebug',
+  group: 'simulation',
+  update: updateLodDebug,
+}
+
 export const UnitsPlugin: Plugin = {
   name: 'RtsUnits',
+  dependencies: [WorldPlugin],
   recovery: 'stateless',
   components: [Unit, Selected, Soldier, MoveTarget, SoldierAnimation],
-  systems: [UnitSystem, MoveSystem, SeparationSystem, AnimationSystem],
+  systems: [UnitSystem, MoveSystem, SeparationSystem, AnimationSystem, LodDebugSystem],
   async initialize(world) {
     await loadSoldierModel(world)
     spawnArmy(world)
