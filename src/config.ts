@@ -3,6 +3,7 @@ export const UNIT_SPEED = 6
 export const UNIT_RADIUS = 0.5
 export const UNIT_CENTER_HEIGHT = 0.9
 export const UNIT_MODEL_URL = '/models/trooper.glb'
+export const UNIT_LOD_DISTANCE = 35
 export const RUN_CYCLE_LENGTH = 3
 export const RUN_CYCLE_JITTER = 0.15
 export const RUN_MIN_SPEED = 1

@@ -19,16 +19,19 @@ import {
   RUN_CYCLE_LENGTH,
   RUN_MIN_SPEED,
   UNIT_COUNT,
+  UNIT_LOD_DISTANCE,
   UNIT_MODEL_URL,
   UNIT_RADIUS,
   UNIT_SPEED,
 } from '../config'
 import { loadGlb } from '../scene/gltf'
+import { RtsView, WorldPlugin } from '../scene/world'
 import { Formation, FormationSlot, MoveTarget, Selected, Unit, UnitAnimation } from './components'
 import { slotToWorld } from './formation'
 import type { Point, SlotOffset } from './formation'
 
 const ARRIVE_DISTANCE = 0.1
+const LOD_DISTANCE_SQ = UNIT_LOD_DISTANCE * UNIT_LOD_DISTANCE
 const SETTLE_DISTANCE = 0.2
 const MIN_SEPARATION = UNIT_RADIUS * 2
 const GRID_COLUMNS = Math.ceil(MAP_SIZE / MIN_SEPARATION)
@@ -40,8 +43,17 @@ const MOVERS = [Unit, MoveTarget]
 const FORMATIONS = [Formation]
 const ANIMATED = [Unit, UnitAnimation]
 
-const UnitModel: Resource<{ idle: MeshHandle; run: MeshHandle[]; palette: number }> = {
-  create: () => ({ idle: 0 as MeshHandle, run: [], palette: -1 }),
+interface UnitFrames {
+  idle: MeshHandle
+  run: MeshHandle[]
+}
+
+const UnitModel: Resource<{ detail: UnitFrames; lod: UnitFrames; palette: number }> = {
+  create: () => ({
+    detail: { idle: 0 as MeshHandle, run: [] },
+    lod: { idle: 0 as MeshHandle, run: [] },
+    palette: -1,
+  }),
 }
 
 const UnitMaterial: Resource<MaterialHandle> = {
@@ -59,9 +71,13 @@ async function loadUnitModel(world: World): Promise<void> {
     if (!geometry) throw new Error(`${UNIT_MODEL_URL} has no mesh "${name}"`)
     return registry.add({ name: `trooper ${name}`, ...geometry })
   }
+  const frames = (prefix: string): UnitFrames => ({
+    idle: add(`${prefix}idle`),
+    run: [...meshes.keys()].filter((name) => name.startsWith(`${prefix}run_`)).sort().map(add),
+  })
   const model = world.resource(UnitModel)
-  model.idle = add('idle')
-  model.run = [...meshes.keys()].filter((name) => name.startsWith('run_')).sort().map(add)
+  model.detail = frames('')
+  model.lod = frames('lod_')
   const nearest = ImageFilterMode.Nearest
   model.palette = registerImage(world, images[0], {
     sampler: { magFilter: nearest, minFilter: nearest, mipmapFilter: nearest },
@@ -266,8 +282,12 @@ function separateUnits(world: World): void {
 
 // Steps are measured from actual displacement so separation pushes and formation catch-up animate too.
 function animateUnits(world: World): void {
-  const { idle, run } = world.resource(UnitModel)
+  const { detail, lod } = world.resource(UnitModel)
   const { translation } = world.storage(Transform)
+  const camera = world.resource(RtsView).camera
+  const cameraX = translation.x.get(camera)
+  const cameraY = translation.y.get(camera)
+  const cameraZ = translation.z.get(camera)
   const animation = world.storage(UnitAnimation)
   const { mesh } = world.storage(MeshInstance)
   const minStep = RUN_MIN_SPEED * world.time.deltaTime
@@ -278,6 +298,8 @@ function animateUnits(world: World): void {
     const step = Math.hypot(x - animation.lastX.get(eid), z - animation.lastZ.get(eid))
     animation.lastX.set(eid, x)
     animation.lastZ.set(eid, z)
+    const far = (x - cameraX) ** 2 + cameraY ** 2 + (z - cameraZ) ** 2 > LOD_DISTANCE_SQ
+    const { idle, run } = far ? lod : detail
     let frame = idle
     if (step > minStep) {
       const phase = (animation.phase.get(eid) + step / animation.cycleLength.get(eid)) % 1
@@ -290,7 +312,7 @@ function animateUnits(world: World): void {
 
 function spawnUnits(world: World): void {
   const material = world.resource(UnitMaterial)
-  const mesh = world.resource(UnitModel).idle
+  const mesh = world.resource(UnitModel).detail.idle
   const columns = Math.ceil(Math.sqrt(UNIT_COUNT))
   const rows = Math.ceil(UNIT_COUNT / columns)
   const offsetX = ((columns - 1) * FORMATION_SPACING) / 2
@@ -337,6 +359,7 @@ const AnimationSystem: System = {
 
 export const UnitsPlugin: Plugin = {
   name: 'RtsUnits',
+  dependencies: [WorldPlugin],
   recovery: 'stateless',
   components: [Unit, Selected, MoveTarget, Formation, FormationSlot, UnitAnimation],
   systems: [FormationSystem, MoveSystem, SeparationSystem, AnimationSystem],
