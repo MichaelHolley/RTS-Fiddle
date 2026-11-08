@@ -1,6 +1,7 @@
 import type { World } from '@dylanebert/shallot'
 import { ControlGroups, selectedCount, SelectionDrag } from '../input/selection'
 import { Unit } from '../units/components'
+import { UnitLod } from '../units/units'
 
 const REFRESH_MS = 250
 const UNITS = [Unit]
@@ -44,7 +45,8 @@ export function mountUi(container: HTMLElement, world: World): () => void {
     const fps = (frames * 1000) / (now - lastRefresh)
     frames = 0
     lastRefresh = now
-    hud.textContent = `FPS: ${fps.toFixed(0)} | Units: ${unitCount(world)} | Selected: ${selectedCount(world)}`
+    const lod = world.resource(UnitLod)
+    hud.textContent = `FPS: ${fps.toFixed(0)} | Units: ${unitCount(world)} | Selected: ${selectedCount(world)} | LOD: ${lod.count}${lod.highlight ? ' (highlighted)' : ' (L to highlight)'}`
     const keys = [...groups.keys()].sort()
     groupsElement.replaceChildren(...keys.map((key) => groupIcon(key, groups.get(key)!.length)))
   }

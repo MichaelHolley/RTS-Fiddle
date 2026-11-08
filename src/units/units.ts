@@ -1,4 +1,5 @@
 import {
+  Devices,
   ImageFilterMode,
   Materials,
   Meshes,
@@ -32,6 +33,8 @@ import type { Point, SlotOffset } from './formation'
 
 const ARRIVE_DISTANCE = 0.1
 const LOD_DISTANCE_SQ = UNIT_LOD_DISTANCE * UNIT_LOD_DISTANCE
+const LOD_DEBUG_KEY = 'KeyL'
+const LOD_DEBUG_TINT = [1, 0.1, 1, 1] as const
 const SETTLE_DISTANCE = 0.2
 const MIN_SEPARATION = UNIT_RADIUS * 2
 const GRID_COLUMNS = Math.ceil(MAP_SIZE / MIN_SEPARATION)
@@ -56,11 +59,35 @@ const UnitModel: Resource<{ detail: UnitFrames; lod: UnitFrames; palette: number
   }),
 }
 
-const UnitMaterial: Resource<MaterialHandle> = {
-  create: (world) =>
+const unitMaterial =
+  (baseColor?: readonly [number, number, number, number]): Resource<MaterialHandle>['create'] =>
+  (world) =>
     world
       .resource(Materials)
-      .add(StandardMaterial({ baseColorTexture: world.resource(UnitModel).palette, perceptualRoughness: 0.6 })),
+      .add(StandardMaterial({ baseColor, baseColorTexture: world.resource(UnitModel).palette, perceptualRoughness: 0.6 }))
+
+const UnitMaterial: Resource<MaterialHandle> = { create: unitMaterial() }
+const LodDebugMaterial: Resource<MaterialHandle> = { create: unitMaterial(LOD_DEBUG_TINT) }
+
+/** Debug view: L tints units drawn with the LOD mesh. */
+export const UnitLod: Resource<{ highlight: boolean; count: number }> = {
+  create: () => ({ highlight: false, count: 0 }),
+}
+
+interface Point3 {
+  x: number
+  y: number
+  z: number
+}
+
+function cameraPosition(world: World): Point3 {
+  const { translation } = world.storage(Transform)
+  const camera = world.resource(RtsView).camera
+  return { x: translation.x.get(camera), y: translation.y.get(camera), z: translation.z.get(camera) }
+}
+
+function usesLod(camera: Point3, x: number, z: number): boolean {
+  return (x - camera.x) ** 2 + camera.y ** 2 + (z - camera.z) ** 2 > LOD_DISTANCE_SQ
 }
 
 async function loadUnitModel(world: World): Promise<void> {
@@ -284,10 +311,7 @@ function separateUnits(world: World): void {
 function animateUnits(world: World): void {
   const { detail, lod } = world.resource(UnitModel)
   const { translation } = world.storage(Transform)
-  const camera = world.resource(RtsView).camera
-  const cameraX = translation.x.get(camera)
-  const cameraY = translation.y.get(camera)
-  const cameraZ = translation.z.get(camera)
+  const camera = cameraPosition(world)
   const animation = world.storage(UnitAnimation)
   const { mesh } = world.storage(MeshInstance)
   const minStep = RUN_MIN_SPEED * world.time.deltaTime
@@ -298,8 +322,7 @@ function animateUnits(world: World): void {
     const step = Math.hypot(x - animation.lastX.get(eid), z - animation.lastZ.get(eid))
     animation.lastX.set(eid, x)
     animation.lastZ.set(eid, z)
-    const far = (x - cameraX) ** 2 + cameraY ** 2 + (z - cameraZ) ** 2 > LOD_DISTANCE_SQ
-    const { idle, run } = far ? lod : detail
+    const { idle, run } = usesLod(camera, x, z) ? lod : detail
     let frame = idle
     if (step > minStep) {
       const phase = (animation.phase.get(eid) + step / animation.cycleLength.get(eid)) % 1
@@ -330,6 +353,23 @@ function spawnUnits(world: World): void {
   }
 }
 
+function updateLodDebug(world: World): void {
+  const state = world.resource(UnitLod)
+  if (world.resource(Devices).keys.pressed.has(LOD_DEBUG_KEY)) state.highlight = !state.highlight
+  const normal = world.resource(UnitMaterial).material
+  const tinted = world.resource(LodDebugMaterial).material
+  const { translation } = world.storage(Transform)
+  const { material } = world.storage(MeshMaterial)
+  const camera = cameraPosition(world)
+  state.count = 0
+  for (const eid of world.query(UNITS)) {
+    const far = usesLod(camera, translation.x.get(eid), translation.z.get(eid))
+    if (far) state.count++
+    const wanted = state.highlight && far ? tinted : normal
+    if (material.get(eid) !== wanted) material.set(eid, wanted)
+  }
+}
+
 const FormationSystem: System = {
   name: 'formation',
   group: 'fixed',
@@ -357,12 +397,18 @@ const AnimationSystem: System = {
   update: animateUnits,
 }
 
+const LodDebugSystem: System = {
+  name: 'unitLodDebug',
+  group: 'simulation',
+  update: updateLodDebug,
+}
+
 export const UnitsPlugin: Plugin = {
   name: 'RtsUnits',
   dependencies: [WorldPlugin],
   recovery: 'stateless',
   components: [Unit, Selected, MoveTarget, Formation, FormationSlot, UnitAnimation],
-  systems: [FormationSystem, MoveSystem, SeparationSystem, AnimationSystem],
+  systems: [FormationSystem, MoveSystem, SeparationSystem, AnimationSystem, LodDebugSystem],
   async initialize(world) {
     await loadUnitModel(world)
     spawnUnits(world)
