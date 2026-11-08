@@ -41,7 +41,8 @@ A **unit** is the selectable block (`Unit` entity: center, destination, facing, 
 
 ### Controls
 
-- **Camera** (`src/camera/rtsCamera.ts`): WASD/arrows or screen-edge pan, Q/E or middle-drag rotate, wheel zoom. Pan speed scales with zoom distance.
+- **Camera** (`src/camera/rtsCamera.ts`): WASD/arrows or screen-edge pan, Q/E or middle-drag rotate, wheel zoom. Pan speed scales with zoom distance. Camera keys are ignored while Ctrl is held, so Ctrl+A doesn't pan.
+- **Browser shortcuts** (`src/input/browserShortcuts.ts`): every key's browser default is cancelled except reload (F5, Ctrl+R), fullscreen (F11), dev tools (F12, Ctrl+Shift+I/J/C) and Cmd combos. Ctrl+W/T/N/Tab can't be blocked by any page, so never bind them.
 - **Select**: left-click picks the unit of the nearest soldier on screen within `CLICK_SELECT_RADIUS_PX`; clicking empty ground deselects. Left-drag box-selects every unit with any soldier inside the box. Shift adds to the selection. Ctrl+A selects all.
 - **Control groups**: Ctrl+digit stores the selection (an empty selection clears the group); digit recalls it, Shift+digit adds it. The HUD shows each group's key and unit count.
 - **Move** (right-click): the selection keeps its relative layout and each unit its frontage, rotated to face the direction of travel from the selection's center to the click (`planMove`). A ring pings the click point.

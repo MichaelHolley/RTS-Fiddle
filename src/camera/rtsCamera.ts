@@ -2,6 +2,7 @@ import { Devices, Viewports } from '@dylanebert/shallot'
 import type { Plugin, System, World } from '@dylanebert/shallot'
 import { Orbit, OrbitPlugin } from '@dylanebert/shallot/extras'
 import { CAMERA, MAP_SIZE } from '../config'
+import { CTRL_KEYS } from '../input/selection'
 import { RtsView, WorldPlugin } from '../scene/world'
 
 const HALF_MAP = MAP_SIZE / 2
@@ -12,6 +13,8 @@ const FORWARD_KEYS = ['KeyW', 'ArrowUp']
 const BACK_KEYS = ['KeyS', 'ArrowDown']
 const RIGHT_KEYS = ['KeyD', 'ArrowRight']
 const LEFT_KEYS = ['KeyA', 'ArrowLeft']
+
+const NO_KEYS: ReadonlySet<string> = new Set()
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
@@ -30,12 +33,14 @@ function axis(
 
 function updateCamera(world: World): void {
   const { keys, pointer } = world.resource(Devices)
+  // Ctrl+letter is a command (Ctrl+A select all), not a camera move
+  const held = CTRL_KEYS.some((code) => keys.held.has(code)) ? NO_KEYS : keys.held
   const orbit = world.storage(Orbit)
   const eid = world.resource(RtsView).camera
   const dt = world.time.deltaTime
 
   let yaw = orbit.yaw.get(eid)
-  yaw += (Number(keys.held.has('KeyE')) - Number(keys.held.has('KeyQ'))) * CAMERA.rotateSpeed * dt
+  yaw += (Number(held.has('KeyE')) - Number(held.has('KeyQ'))) * CAMERA.rotateSpeed * dt
   if (pointer.middle) yaw -= pointer.deltaX * DRAG_ROTATE_SPEED
 
   if (pointer.scroll !== 0) {
@@ -45,14 +50,14 @@ function updateCamera(world: World): void {
 
   const view = pointer.hover && !pointer.middle ? world.resource(Viewports).get(0) : undefined
   const forwardAmount = axis(
-    keys.held,
+    held,
     FORWARD_KEYS,
     BACK_KEYS,
     view !== undefined && pointer.y < CAMERA.edgePanPx,
     view !== undefined && pointer.y > view.cssHeight - CAMERA.edgePanPx,
   )
   const rightAmount = axis(
-    keys.held,
+    held,
     RIGHT_KEYS,
     LEFT_KEYS,
     view !== undefined && pointer.x > view.cssWidth - CAMERA.edgePanPx,

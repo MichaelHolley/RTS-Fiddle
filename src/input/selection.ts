@@ -12,7 +12,7 @@ const SOLDIERS = [Soldier]
 const SELECTED_UNITS = [Unit, Selected]
 const DIGIT_CODE = /^Digit(\d)$/
 const SHIFT_KEYS = ['ShiftLeft', 'ShiftRight']
-const CTRL_KEYS = ['ControlLeft', 'ControlRight']
+export const CTRL_KEYS = ['ControlLeft', 'ControlRight']
 
 export interface DragState {
   startX: number
