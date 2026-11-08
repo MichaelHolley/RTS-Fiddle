@@ -1,17 +1,17 @@
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
 import { drawLine, LinesPlugin } from '@dylanebert/shallot/extras'
 import { Commands, CommandPlugin } from '../input/commands'
-import { Formation, FormationSlot } from '../units/components'
-import { slotToWorld } from '../units/formation'
+import { Selected, Unit } from '../units/components'
+import { footprint, slotToWorld } from '../units/formation'
 import type { Point, SlotOffset } from '../units/formation'
 
 const LIFT = 0.05
 const MARKER_COLOR = 0xffe666
 const GROUND_COLOR = 0x476642
 const LINE_WIDTH = 2
-const MARKER_TIP = 0.35
-const MARKER_BACK = 0.2
-const MARKER_HALF_WIDTH = 0.25
+const ARROW_BASE = 0.6
+const ARROW_TIP = 1.8
+const ARROW_HALF_WIDTH = 1.2
 const RING_SECONDS = 0.5
 const RING_SEGMENTS = 32
 const RING_START_RADIUS = 0.5
@@ -25,51 +25,50 @@ interface Ring {
 
 const MoveRing: Resource<{ ring: Ring | null }> = { create: () => ({ ring: null }) }
 
-const MARKED = [FormationSlot]
-const slotPoint: Point = { x: 0, z: 0 }
+const SELECTED_UNITS = [Unit, Selected]
+const cornerPoint: Point = { x: 0, z: 0 }
 const cornerOffset: SlotOffset = { x: 0, z: 0 }
-const tip: [number, number, number] = [0, LIFT, 0]
-const left: [number, number, number] = [0, LIFT, 0]
-const right: [number, number, number] = [0, LIFT, 0]
+const corners: [number, number, number][] = Array.from({ length: 4 }, () => [0, LIFT, 0])
+const arrow: [number, number, number][] = Array.from({ length: 3 }, () => [0, LIFT, 0])
+const destination: Point = { x: 0, z: 0 }
 
 function setCorner(corner: [number, number, number], center: Point, facing: number, x: number, z: number): void {
   cornerOffset.x = x
   cornerOffset.z = z
-  slotToWorld(center, facing, cornerOffset, slotPoint)
-  corner[0] = slotPoint.x
-  corner[2] = slotPoint.z
+  slotToWorld(center, facing, cornerOffset, cornerPoint)
+  corner[0] = cornerPoint.x
+  corner[2] = cornerPoint.z
 }
 
-function drawSlotMarker(world: World, center: Point, facing: number, { x, z }: SlotOffset): void {
-  setCorner(tip, center, facing, x, z + MARKER_TIP)
-  setCorner(left, center, facing, x - MARKER_HALF_WIDTH, z - MARKER_BACK)
-  setCorner(right, center, facing, x + MARKER_HALF_WIDTH, z - MARKER_BACK)
-  drawLine(world, tip, right, MARKER_COLOR, LINE)
-  drawLine(world, right, left, MARKER_COLOR, LINE)
-  drawLine(world, left, tip, MARKER_COLOR, LINE)
+function drawFootprint(world: World, center: Point, facing: number, files: number, ranks: number): void {
+  const { halfWidth, front, back } = footprint(files, ranks)
+  setCorner(corners[0], center, facing, -halfWidth, front)
+  setCorner(corners[1], center, facing, halfWidth, front)
+  setCorner(corners[2], center, facing, halfWidth, back)
+  setCorner(corners[3], center, facing, -halfWidth, back)
+  for (let i = 0; i < 4; i++) drawLine(world, corners[i], corners[(i + 1) % 4], MARKER_COLOR, LINE)
+  setCorner(arrow[0], center, facing, -ARROW_HALF_WIDTH, front + ARROW_BASE)
+  setCorner(arrow[1], center, facing, 0, front + ARROW_TIP)
+  setCorner(arrow[2], center, facing, ARROW_HALF_WIDTH, front + ARROW_BASE)
+  drawLine(world, arrow[0], arrow[1], MARKER_COLOR, LINE)
+  drawLine(world, arrow[1], arrow[2], MARKER_COLOR, LINE)
 }
 
-function drawFormationMarkers(world: World): void {
-  const slots = world.storage(FormationSlot)
-  const formations = world.storage(Formation)
-  const center: Point = { x: 0, z: 0 }
-  const offset: SlotOffset = { x: 0, z: 0 }
-  for (const eid of world.query(MARKED)) {
-    const formation = slots.formation.get(eid)
-    if (formation === 0) continue
-    center.x = formations.destination.x.get(formation)
-    center.z = formations.destination.z.get(formation)
-    offset.x = slots.x.get(eid)
-    offset.z = slots.z.get(eid)
-    drawSlotMarker(world, center, formations.facing.get(formation), offset)
+function drawDestinations(world: World): void {
+  const units = world.storage(Unit)
+  for (const unit of world.query(SELECTED_UNITS)) {
+    destination.x = units.destination.x.get(unit)
+    destination.z = units.destination.z.get(unit)
+    if (destination.x === units.center.x.get(unit) && destination.z === units.center.z.get(unit)) continue
+    drawFootprint(world, destination, units.facing.get(unit), units.files.get(unit), units.ranks.get(unit))
   }
 }
 
 function drawPreview(world: World): void {
   const { preview } = world.resource(Commands)
   if (!preview) return
-  for (const row of preview.layout.rows) {
-    for (const slot of row) drawSlotMarker(world, preview.center, preview.facing, slot)
+  for (const { layout, center, facing } of preview) {
+    drawFootprint(world, center, facing, layout.rows[0].length, layout.rows.length)
   }
 }
 
@@ -123,7 +122,7 @@ const MarkersSystem: System = {
   name: 'markers',
   group: 'simulation',
   update(world) {
-    drawFormationMarkers(world)
+    drawDestinations(world)
     drawPreview(world)
     drawMoveRing(world)
   },

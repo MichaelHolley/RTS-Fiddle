@@ -11,55 +11,60 @@ import {
 import type { MeshHandle, Plugin, Resource, System, Vector4Field, World } from '@dylanebert/shallot'
 import type { MaterialHandle } from '@dylanebert/shallot/standard/rendering'
 import {
-  FORMATION_REFORM_DISTANCE,
+  CAMERA,
   FORMATION_SPACING,
-  FORMATION_SPEED,
   MAP_SIZE,
   RUN_CYCLE_JITTER,
   RUN_CYCLE_LENGTH,
   RUN_MIN_SPEED,
+  SOLDIER_COUNT,
+  SOLDIER_MODEL_URL,
+  SOLDIER_RADIUS,
+  SOLDIER_SPEED,
   UNIT_COUNT,
-  UNIT_MODEL_URL,
-  UNIT_RADIUS,
+  UNIT_DRIFT_DISTANCE,
+  UNIT_GAP,
+  UNIT_REFORM_DISTANCE,
+  UNIT_SIZE,
   UNIT_SPEED,
+  UNIT_START_FILES,
 } from '../config'
 import { loadGlb } from '../scene/gltf'
-import { Formation, FormationSlot, MoveTarget, Selected, Unit, UnitAnimation } from './components'
-import { slotToWorld } from './formation'
+import { MoveTarget, Selected, Soldier, SoldierAnimation, Unit } from './components'
+import { gridLayout, slotToWorld } from './formation'
 import type { Point, SlotOffset } from './formation'
 
 const ARRIVE_DISTANCE = 0.1
-const SETTLE_DISTANCE = 0.2
-const MIN_SEPARATION = UNIT_RADIUS * 2
+const DEPLOY_LINES = 2
+const MIN_SEPARATION = SOLDIER_RADIUS * 2
 const GRID_COLUMNS = Math.ceil(MAP_SIZE / MIN_SEPARATION)
 const GRID_HALF_SIZE = MAP_SIZE / 2
 
 const UNITS = [Unit]
-const MEMBERS = [Unit, FormationSlot]
-const MOVERS = [Unit, MoveTarget]
-const FORMATIONS = [Formation]
-const ANIMATED = [Unit, UnitAnimation]
+const SOLDIERS = [Soldier]
+const MOVERS = [Soldier, MoveTarget]
+const ANIMATED = [Soldier, SoldierAnimation]
 
-const UnitModel: Resource<{ idle: MeshHandle; run: MeshHandle[]; palette: number }> = {
+const SoldierModel: Resource<{ idle: MeshHandle; run: MeshHandle[]; palette: number }> = {
   create: () => ({ idle: 0 as MeshHandle, run: [], palette: -1 }),
 }
 
-const UnitMaterial: Resource<MaterialHandle> = {
+const SoldierMaterial: Resource<MaterialHandle> = {
   create: (world) =>
     world
       .resource(Materials)
-      .add(StandardMaterial({ baseColorTexture: world.resource(UnitModel).palette, perceptualRoughness: 0.6 })),
+      .add(StandardMaterial({ baseColorTexture: world.resource(SoldierModel).palette, perceptualRoughness: 0.6 })),
 }
 
-async function loadUnitModel(world: World): Promise<void> {
-  const { meshes, images } = await loadGlb(UNIT_MODEL_URL)
+async function loadSoldierModel(world: World): Promise<void> {
+  const { meshes, images } = await loadGlb(SOLDIER_MODEL_URL)
   const registry = world.resource(Meshes)
   const add = (name: string): MeshHandle => {
     const geometry = meshes.get(name)
-    if (!geometry) throw new Error(`${UNIT_MODEL_URL} has no mesh "${name}"`)
+    if (!geometry) throw new Error(`${SOLDIER_MODEL_URL} has no mesh "${name}"`)
     return registry.add({ name: `trooper ${name}`, ...geometry })
   }
-  const model = world.resource(UnitModel)
+  const model = world.resource(SoldierModel)
   model.idle = add('idle')
   model.run = [...meshes.keys()].filter((name) => name.startsWith('run_')).sort().map(add)
   const nearest = ImageFilterMode.Nearest
@@ -68,20 +73,16 @@ async function loadUnitModel(world: World): Promise<void> {
   })
 }
 
-interface FormationState {
-  lag: number
-  heading: number
-  active: boolean
-}
-
-const FormationScratch: Resource<{
-  states: Map<number, FormationState>
+const UnitScratch: Resource<{
+  lags: Map<number, number>
+  marching: Map<number, number>
   center: Point
   offset: SlotOffset
   slot: Point
 }> = {
   create: () => ({
-    states: new Map(),
+    lags: new Map(),
+    marching: new Map(),
     center: { x: 0, z: 0 },
     offset: { x: 0, z: 0 },
     slot: { x: 0, z: 0 },
@@ -97,10 +98,10 @@ const SeparationGrid: Resource<{
 }> = {
   create: () => ({
     cellHead: new Int32Array(GRID_COLUMNS * GRID_COLUMNS),
-    nextInCell: new Int32Array(UNIT_COUNT),
-    eids: new Uint32Array(UNIT_COUNT),
-    xs: new Float32Array(UNIT_COUNT),
-    zs: new Float32Array(UNIT_COUNT),
+    nextInCell: new Int32Array(SOLDIER_COUNT),
+    eids: new Uint32Array(SOLDIER_COUNT),
+    xs: new Float32Array(SOLDIER_COUNT),
+    zs: new Float32Array(SOLDIER_COUNT),
   }),
 }
 
@@ -108,87 +109,86 @@ function setHeading(rotation: Vector4Field, eid: number, heading: number): void 
   rotation.set(eid, 0, Math.sin(heading / 2), 0, Math.cos(heading / 2))
 }
 
-function memberSlot(world: World, eid: number, formation: number): Point {
-  const { center, offset, slot } = world.resource(FormationScratch)
-  const formations = world.storage(Formation)
-  const slots = world.storage(FormationSlot)
-  center.x = formations.center.x.get(formation)
-  center.z = formations.center.z.get(formation)
-  offset.x = slots.x.get(eid)
-  offset.z = slots.z.get(eid)
-  return slotToWorld(center, formations.facing.get(formation), offset, slot)
+function isIdle(world: World, unit: number): boolean {
+  const { center, destination } = world.storage(Unit)
+  return center.x.get(unit) === destination.x.get(unit) && center.z.get(unit) === destination.z.get(unit)
 }
 
-function updateFormations(world: World): void {
-  const { states } = world.resource(FormationScratch)
-  const slots = world.storage(FormationSlot)
-  const formations = world.storage(Formation)
+function soldierSlot(world: World, soldier: number, unit: number): Point {
+  const { center, offset, slot } = world.resource(UnitScratch)
+  const units = world.storage(Unit)
+  const soldiers = world.storage(Soldier)
+  center.x = units.center.x.get(unit)
+  center.z = units.center.z.get(unit)
+  offset.x = soldiers.slotX.get(soldier)
+  offset.z = soldiers.slotZ.get(soldier)
+  return slotToWorld(center, units.facing.get(unit), offset, slot)
+}
+
+function setMoveTarget(world: World, eid: number, slot: Point, heading: number): void {
+  if (!world.has(eid, MoveTarget)) {
+    world.add(eid, MoveTarget, { x: slot.x, z: slot.z, heading })
+    return
+  }
   const targets = world.storage(MoveTarget)
+  targets.x.set(eid, slot.x)
+  targets.z.set(eid, slot.z)
+  targets.heading.set(eid, heading)
+}
+
+// A unit's center only advances while every soldier is within reform distance of its slot, so the block stays whole.
+function updateUnits(world: World): void {
+  const { lags, marching } = world.resource(UnitScratch)
+  const units = world.storage(Unit)
+  const soldiers = world.storage(Soldier)
   const { translation } = world.storage(Transform)
-  states.clear()
+  lags.clear()
+  marching.clear()
 
-  for (const eid of world.query(MEMBERS)) {
-    const formation = slots.formation.get(eid)
-    if (formation === 0) {
-      world.remove(eid, FormationSlot)
-      continue
-    }
-    let state = states.get(formation)
-    if (!state) states.set(formation, (state = { lag: 0, heading: 0, active: false }))
-    const slot = memberSlot(world, eid, formation)
+  for (const eid of world.query(SOLDIERS)) {
+    const unit = soldiers.unit.get(eid)
+    const slot = soldierSlot(world, eid, unit)
     const lag = Math.hypot(slot.x - translation.x.get(eid), slot.z - translation.z.get(eid))
-    if (lag > state.lag) state.lag = lag
+    if (lag > (lags.get(unit) ?? 0)) lags.set(unit, lag)
   }
 
-  for (const eid of world.query(FORMATIONS)) {
-    const state = states.get(eid)
-    if (!state) {
-      world.destroy(eid)
-      continue
-    }
-    const { center, destination } = formations
-    const dx = destination.x.get(eid) - center.x.get(eid)
-    const dz = destination.z.get(eid) - center.z.get(eid)
+  const { center, destination } = units
+  for (const unit of world.query(UNITS)) {
+    const dx = destination.x.get(unit) - center.x.get(unit)
+    const dz = destination.z.get(unit) - center.z.get(unit)
     const remaining = Math.hypot(dx, dz)
-    if (remaining === 0 && state.lag <= SETTLE_DISTANCE) {
-      world.destroy(eid)
-      continue
+    if (remaining === 0) continue
+    marching.set(unit, Math.atan2(dx, dz))
+    if ((lags.get(unit) ?? 0) > UNIT_REFORM_DISTANCE) continue
+    const step = UNIT_SPEED * world.time.deltaTime
+    if (remaining <= step) {
+      center.x.set(unit, destination.x.get(unit))
+      center.z.set(unit, destination.z.get(unit))
+    } else {
+      center.x.set(unit, center.x.get(unit) + (dx / remaining) * step)
+      center.z.set(unit, center.z.get(unit) + (dz / remaining) * step)
     }
-
-    let arrived = remaining === 0
-    if (state.lag <= FORMATION_REFORM_DISTANCE) {
-      const step = FORMATION_SPEED * world.time.deltaTime
-      if (remaining <= step) {
-        center.x.set(eid, destination.x.get(eid))
-        center.z.set(eid, destination.z.get(eid))
-        arrived = true
-      } else {
-        center.x.set(eid, center.x.get(eid) + (dx / remaining) * step)
-        center.z.set(eid, center.z.get(eid) + (dz / remaining) * step)
-      }
-    }
-    state.heading = arrived ? formations.facing.get(eid) : Math.atan2(dx, dz)
-    state.active = true
   }
 
-  for (const eid of world.query(MEMBERS)) {
-    const state = states.get(slots.formation.get(eid))
-    if (!state?.active) continue
-    const slot = memberSlot(world, eid, slots.formation.get(eid))
-    if (world.has(eid, MoveTarget)) {
-      targets.x.set(eid, slot.x)
-      targets.z.set(eid, slot.z)
-      targets.heading.set(eid, state.heading)
-    } else {
-      world.add(eid, MoveTarget, { x: slot.x, z: slot.z, heading: state.heading })
+  for (const eid of world.query(SOLDIERS)) {
+    const unit = soldiers.unit.get(eid)
+    const slot = soldierSlot(world, eid, unit)
+    const heading = marching.get(unit)
+    if (heading !== undefined) {
+      setMoveTarget(world, eid, slot, heading)
+      continue
     }
+    const drift = Math.hypot(slot.x - translation.x.get(eid), slot.z - translation.z.get(eid))
+    if (!world.has(eid, MoveTarget) && drift <= UNIT_DRIFT_DISTANCE) continue
+    setMoveTarget(world, eid, slot, units.facing.get(unit))
   }
 }
 
-function moveUnits(world: World): void {
-  const step = UNIT_SPEED * world.time.deltaTime
+function moveSoldiers(world: World): void {
+  const step = SOLDIER_SPEED * world.time.deltaTime
   const { translation, rotation } = world.storage(Transform)
   const targets = world.storage(MoveTarget)
+  const soldiers = world.storage(Soldier)
 
   for (const eid of world.query(MOVERS)) {
     const dx = targets.x.get(eid) - translation.x.get(eid)
@@ -198,7 +198,7 @@ function moveUnits(world: World): void {
       if (dx !== 0) translation.x.set(eid, targets.x.get(eid))
       if (dz !== 0) translation.z.set(eid, targets.z.get(eid))
       setHeading(rotation, eid, targets.heading.get(eid))
-      if (!world.has(eid, FormationSlot)) world.remove(eid, MoveTarget)
+      if (isIdle(world, soldiers.unit.get(eid))) world.remove(eid, MoveTarget)
       continue
     }
     setHeading(rotation, eid, Math.atan2(dx, dz))
@@ -226,12 +226,12 @@ function separatePair(xs: Float32Array, zs: Float32Array, i: number, j: number):
   zs[j] += nz * push
 }
 
-function separateUnits(world: World): void {
+function separateSoldiers(world: World): void {
   const { cellHead, nextInCell, eids, xs, zs } = world.resource(SeparationGrid)
   const { translation } = world.storage(Transform)
 
   let count = 0
-  for (const eid of world.query(UNITS)) {
+  for (const eid of world.query(SOLDIERS)) {
     eids[count] = eid
     xs[count] = translation.x.get(eid)
     zs[count] = translation.z.get(eid)
@@ -265,10 +265,10 @@ function separateUnits(world: World): void {
 }
 
 // Steps are measured from actual displacement so separation pushes and formation catch-up animate too.
-function animateUnits(world: World): void {
-  const { idle, run } = world.resource(UnitModel)
+function animateSoldiers(world: World): void {
+  const { idle, run } = world.resource(SoldierModel)
   const { translation } = world.storage(Transform)
-  const animation = world.storage(UnitAnimation)
+  const animation = world.storage(SoldierAnimation)
   const { mesh } = world.storage(MeshInstance)
   const minStep = RUN_MIN_SPEED * world.time.deltaTime
 
@@ -288,60 +288,78 @@ function animateUnits(world: World): void {
   }
 }
 
-function spawnUnits(world: World): void {
-  const material = world.resource(UnitMaterial)
-  const mesh = world.resource(UnitModel).idle
-  const columns = Math.ceil(Math.sqrt(UNIT_COUNT))
-  const rows = Math.ceil(UNIT_COUNT / columns)
-  const offsetX = ((columns - 1) * FORMATION_SPACING) / 2
-  const offsetZ = ((rows - 1) * FORMATION_SPACING) / 2
-  for (let id = 0; id < UNIT_COUNT; id++) {
-    const x = (id % columns) * FORMATION_SPACING - offsetX
-    const z = Math.floor(id / columns) * FORMATION_SPACING - offsetZ
+function spawnSoldier(world: World, unit: number, position: Point, facing: number, slot: SlotOffset): void {
+  const { x, z } = position
+  const soldier = world.create()
+  world.add(soldier, Soldier, { unit, slotX: slot.x, slotZ: slot.z })
+  world.add(soldier, Transform, { translation: [x, 0, z] })
+  setHeading(world.storage(Transform).rotation, soldier, facing)
+  const cycleLength = RUN_CYCLE_LENGTH * (1 + (Math.random() * 2 - 1) * RUN_CYCLE_JITTER)
+  world.add(soldier, SoldierAnimation, { phase: Math.random(), cycleLength, lastX: x, lastZ: z })
+  world.add(soldier, MeshInstance, { mesh: world.resource(SoldierModel).idle })
+  world.add(soldier, MeshMaterial, world.resource(SoldierMaterial))
+}
+
+// The army deploys in lines of units at the map center, facing away from the starting camera.
+function spawnArmy(world: World): void {
+  const facing = CAMERA.yaw + Math.PI
+  const layout = gridLayout(UNIT_SIZE, UNIT_START_FILES)
+  const files = layout.rows[0].length
+  const ranks = layout.rows.length
+  const pitchX = (files - 1) * FORMATION_SPACING + UNIT_GAP
+  const pitchZ = (ranks - 1) * FORMATION_SPACING + UNIT_GAP
+  const perLine = Math.ceil(UNIT_COUNT / DEPLOY_LINES)
+  const origin: Point = { x: 0, z: 0 }
+  const position: Point = { x: 0, z: 0 }
+
+  for (let i = 0; i < UNIT_COUNT; i++) {
+    const line = Math.floor(i / perLine)
+    const inLine = Math.min(perLine, UNIT_COUNT - line * perLine)
+    const offset = { x: ((i % perLine) - (inLine - 1) / 2) * pitchX, z: ((DEPLOY_LINES - 1) / 2 - line) * pitchZ }
+    const center = slotToWorld(origin, facing, offset, { x: 0, z: 0 })
     const unit = world.create()
-    world.add(unit, Unit)
-    world.add(unit, Transform, { translation: [x, 0, z] })
-    const cycleLength = RUN_CYCLE_LENGTH * (1 + (Math.random() * 2 - 1) * RUN_CYCLE_JITTER)
-    world.add(unit, UnitAnimation, { phase: Math.random(), cycleLength, lastX: x, lastZ: z })
-    world.add(unit, MeshInstance, { mesh })
-    world.add(unit, MeshMaterial, material)
+    const at: [number, number, number] = [center.x, 0, center.z]
+    world.add(unit, Unit, { center: at, destination: at, facing, files, ranks })
+    for (const row of layout.rows) {
+      for (const slot of row) spawnSoldier(world, unit, slotToWorld(center, facing, slot, position), facing, slot)
+    }
   }
 }
 
-const FormationSystem: System = {
-  name: 'formation',
+const UnitSystem: System = {
+  name: 'units',
   group: 'fixed',
-  update: updateFormations,
+  update: updateUnits,
 }
 
 const MoveSystem: System = {
   name: 'move',
   group: 'fixed',
-  after: [FormationSystem],
-  update: moveUnits,
+  after: [UnitSystem],
+  update: moveSoldiers,
 }
 
 const SeparationSystem: System = {
   name: 'separation',
   group: 'fixed',
   after: [MoveSystem],
-  update: separateUnits,
+  update: separateSoldiers,
 }
 
 const AnimationSystem: System = {
-  name: 'unitAnimation',
+  name: 'soldierAnimation',
   group: 'fixed',
   after: [SeparationSystem],
-  update: animateUnits,
+  update: animateSoldiers,
 }
 
 export const UnitsPlugin: Plugin = {
   name: 'RtsUnits',
   recovery: 'stateless',
-  components: [Unit, Selected, MoveTarget, Formation, FormationSlot, UnitAnimation],
-  systems: [FormationSystem, MoveSystem, SeparationSystem, AnimationSystem],
+  components: [Unit, Selected, Soldier, MoveTarget, SoldierAnimation],
+  systems: [UnitSystem, MoveSystem, SeparationSystem, AnimationSystem],
   async initialize(world) {
-    await loadUnitModel(world)
-    spawnUnits(world)
+    await loadSoldierModel(world)
+    spawnArmy(world)
   },
 }

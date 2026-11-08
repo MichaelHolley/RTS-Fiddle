@@ -1,14 +1,20 @@
-export const UNIT_COUNT = 500
-export const UNIT_SPEED = 6
-export const UNIT_RADIUS = 0.5
-export const UNIT_CENTER_HEIGHT = 0.9
-export const UNIT_MODEL_URL = '/models/trooper.glb'
+export const UNIT_COUNT = 10
+export const UNIT_SIZE = 50
+export const SOLDIER_COUNT = UNIT_COUNT * UNIT_SIZE
+export const UNIT_START_FILES = 10
+export const UNIT_MIN_FILES = 4
+export const UNIT_GAP = 3
+export const UNIT_SPEED = 5
+export const UNIT_REFORM_DISTANCE = 2
+export const UNIT_DRIFT_DISTANCE = 0.75
+export const SOLDIER_SPEED = 6
+export const SOLDIER_RADIUS = 0.5
+export const SOLDIER_CENTER_HEIGHT = 0.9
+export const SOLDIER_MODEL_URL = '/models/trooper.glb'
 export const RUN_CYCLE_LENGTH = 3
 export const RUN_CYCLE_JITTER = 0.15
 export const RUN_MIN_SPEED = 1
 export const FORMATION_SPACING = 1.5
-export const FORMATION_SPEED = 5
-export const FORMATION_REFORM_DISTANCE = 2
 export const MAP_SIZE = 200
 export const CAMERA = {
   minDistance: 10,

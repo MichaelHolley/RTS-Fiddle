@@ -1,9 +1,10 @@
 import type { World } from '@dylanebert/shallot'
 import { ControlGroups, selectedCount, SelectionDrag } from '../input/selection'
-import { Unit } from '../units/components'
+import { Selected, Soldier, Unit } from '../units/components'
 
 const REFRESH_MS = 250
 const UNITS = [Unit]
+const SOLDIERS = [Soldier]
 
 function element(parent: HTMLElement, id: string): HTMLElement {
   const created = document.createElement('div')
@@ -30,6 +31,13 @@ function unitCount(world: World): number {
   return count
 }
 
+function selectedSoldierCount(world: World): number {
+  const soldiers = world.storage(Soldier)
+  let count = 0
+  for (const eid of world.query(SOLDIERS)) if (world.has(soldiers.unit.get(eid), Selected)) count++
+  return count
+}
+
 export function mountUi(container: HTMLElement, world: World): () => void {
   const hud = element(container, 'hud')
   const groupsElement = element(container, 'groups')
@@ -44,7 +52,8 @@ export function mountUi(container: HTMLElement, world: World): () => void {
     const fps = (frames * 1000) / (now - lastRefresh)
     frames = 0
     lastRefresh = now
-    hud.textContent = `FPS: ${fps.toFixed(0)} | Units: ${unitCount(world)} | Selected: ${selectedCount(world)}`
+    const selected = `${selectedCount(world)} (${selectedSoldierCount(world)} soldiers)`
+    hud.textContent = `FPS: ${fps.toFixed(0)} | Units: ${unitCount(world)} | Selected: ${selected}`
     const keys = [...groups.keys()].sort()
     groupsElement.replaceChildren(...keys.map((key) => groupIcon(key, groups.get(key)!.length)))
   }

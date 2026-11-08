@@ -1,17 +1,19 @@
 import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
 import { DRAG_THRESHOLD_PX } from '../config'
-import { Formation, FormationSlot } from '../units/components'
-import { assignSlots, planLine, planSquare } from '../units/formation'
-import type { FormationPlan, Placed, Point } from '../units/formation'
+import { Soldier, Unit } from '../units/components'
+import { assignSlots, planFrontage, planMove } from '../units/formation'
+import type { Placed, Point, UnitPlan, UnitPose } from '../units/formation'
 import { UnitsPlugin } from '../units/units'
 import { pickGround } from './ground'
 import { selectedCount, selectedUnits, SelectionPlugin } from './selection'
 
+const SOLDIERS = [Soldier]
+
 export interface CommandState {
   drag: { startX: number; startY: number; anchor: Point } | null
-  /** Line formation shown while a right drag is past the drag threshold. */
-  preview: FormationPlan | null
+  /** Frontage plans shown while a right drag is past the drag threshold. */
+  preview: UnitPlan[] | null
   /** Point of a move order issued without a drag; the marker consumer takes it and resets it to null. */
   ping: Point | null
 }
@@ -20,9 +22,27 @@ export const Commands: Resource<CommandState> = {
   create: () => ({ drag: null, preview: null, ping: null }),
 }
 
-function placedSelection(world: World): Placed[] {
+function soldiersByUnit(world: World, units: readonly number[]): Map<number, Placed[]> {
+  const byUnit = new Map(units.map((unit) => [unit, [] as Placed[]]))
+  const soldiers = world.storage(Soldier)
   const { translation } = world.storage(Transform)
-  return selectedUnits(world).map((eid) => ({ eid, x: translation.x.get(eid), z: translation.z.get(eid) }))
+  for (const eid of world.query(SOLDIERS)) {
+    byUnit.get(soldiers.unit.get(eid))?.push({ eid, x: translation.x.get(eid), z: translation.z.get(eid) })
+  }
+  return byUnit
+}
+
+function selectedPoses(world: World): UnitPose[] {
+  const { center, facing, files } = world.storage(Unit)
+  const byUnit = soldiersByUnit(world, selectedUnits(world))
+  return [...byUnit].map(([unit, soldiers]) => ({
+    unit,
+    x: center.x.get(unit),
+    z: center.z.get(unit),
+    facing: facing.get(unit),
+    count: soldiers.length,
+    files: files.get(unit),
+  }))
 }
 
 function updatePreview(world: World, state: CommandState, x: number, y: number): void {
@@ -30,7 +50,7 @@ function updatePreview(world: World, state: CommandState, x: number, y: number):
   if (!drag) return
   if (!state.preview && Math.hypot(x - drag.startX, y - drag.startY) <= DRAG_THRESHOLD_PX) return
   const end = pickGround(world, x, y)
-  if (end) state.preview = planLine(drag.anchor, end, selectedCount(world))
+  if (end) state.preview = planFrontage(drag.anchor, end, selectedPoses(world))
 }
 
 function cancelDrag(state: CommandState): void {
@@ -38,26 +58,21 @@ function cancelDrag(state: CommandState): void {
   state.preview = null
 }
 
-function issueMove(world: World, state: CommandState, anchor: Point): void {
-  const units = placedSelection(world)
-  if (units.length === 0) return
-  const centroid = { x: 0, z: 0 }
-  for (const unit of units) {
-    centroid.x += unit.x / units.length
-    centroid.z += unit.z / units.length
+function issueOrders(world: World, plans: readonly UnitPlan[]): void {
+  const units = world.storage(Unit)
+  const soldiers = world.storage(Soldier)
+  const byUnit = soldiersByUnit(world, plans.map((plan) => plan.unit))
+  for (const { unit, layout, center, facing } of plans) {
+    units.destination.x.set(unit, center.x)
+    units.destination.z.set(unit, center.z)
+    units.facing.set(unit, facing)
+    units.files.set(unit, layout.rows[0].length)
+    units.ranks.set(unit, layout.rows.length)
+    for (const [eid, slot] of assignSlots(byUnit.get(unit) ?? [], layout, facing)) {
+      soldiers.slotX.set(eid, slot.x)
+      soldiers.slotZ.set(eid, slot.z)
+    }
   }
-  const plan = state.preview ?? planSquare(centroid, anchor, units.length)
-
-  const formation = world.create()
-  world.add(formation, Formation, {
-    center: [centroid.x, 0, centroid.z],
-    destination: [plan.center.x, 0, plan.center.z],
-    facing: plan.facing,
-  })
-  for (const [eid, offset] of assignSlots(units, plan.layout, plan.facing)) {
-    world.add(eid, FormationSlot, { formation, x: offset.x, z: offset.z })
-  }
-  if (!state.preview) state.ping = anchor
 }
 
 function updateCommands(world: World): void {
@@ -72,7 +87,13 @@ function updateCommands(world: World): void {
       if (anchor) state.drag = { startX: event.x, startY: event.y, anchor }
     } else if (state.drag) {
       updatePreview(world, state, event.x, event.y)
-      issueMove(world, state, state.drag.anchor)
+      const { anchor } = state.drag
+      if (state.preview) {
+        issueOrders(world, state.preview)
+      } else {
+        issueOrders(world, planMove(anchor, selectedPoses(world)))
+        state.ping = anchor
+      }
       cancelDrag(state)
     }
   }

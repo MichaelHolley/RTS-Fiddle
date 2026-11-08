@@ -2,12 +2,13 @@ import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
 import { drawLine, Gizmo, GizmoAsset, LinesPlugin, registerGizmo } from '@dylanebert/shallot/extras'
 import { worldToViewport } from '@dylanebert/shallot/rendering'
-import { CLICK_SELECT_RADIUS_PX, DRAG_THRESHOLD_PX, SELECTION_RING, UNIT_CENTER_HEIGHT } from '../config'
+import { CLICK_SELECT_RADIUS_PX, DRAG_THRESHOLD_PX, SELECTION_RING, SOLDIER_CENTER_HEIGHT } from '../config'
 import { RtsView, WorldPlugin } from '../scene/world'
-import { Selected, Unit } from '../units/components'
+import { Selected, Soldier, Unit } from '../units/components'
 import { UnitsPlugin } from '../units/units'
 
 const UNITS = [Unit]
+const SOLDIERS = [Soldier]
 const SELECTED_UNITS = [Unit, Selected]
 const DIGIT_CODE = /^Digit(\d)$/
 const SHIFT_KEYS = ['ShiftLeft', 'ShiftRight']
@@ -53,32 +54,39 @@ export function selectedCount(world: World): number {
   return count
 }
 
-export function setSelection(world: World, eids: Iterable<number>, additive: boolean): void {
-  const next = new Set(eids)
+function syncRings(world: World): void {
   const handle = world.resource(SelectionRing)
-  for (const eid of world.query(UNITS)) {
-    const wasSelected = world.has(eid, Selected)
-    const isSelected = next.has(eid) || (additive && wasSelected)
-    if (isSelected === wasSelected) continue
-    if (isSelected) {
-      world.add(eid, Selected)
-      world.add(eid, Gizmo, { handle, width: SELECTION_RING.width })
-    } else {
-      world.remove(eid, Selected)
-      world.remove(eid, Gizmo)
-    }
+  const soldiers = world.storage(Soldier)
+  for (const eid of world.query(SOLDIERS)) {
+    const selected = world.has(soldiers.unit.get(eid), Selected)
+    if (selected === world.has(eid, Gizmo)) continue
+    if (selected) world.add(eid, Gizmo, { handle, width: SELECTION_RING.width })
+    else world.remove(eid, Gizmo)
   }
 }
 
-function forEachScreenPosition(world: World, visit: (eid: number, x: number, y: number) => void): void {
+export function setSelection(world: World, units: Iterable<number>, additive: boolean): void {
+  const next = new Set(units)
+  for (const unit of world.query(UNITS)) {
+    const wasSelected = world.has(unit, Selected)
+    const isSelected = next.has(unit) || (additive && wasSelected)
+    if (isSelected === wasSelected) continue
+    if (isSelected) world.add(unit, Selected)
+    else world.remove(unit, Selected)
+  }
+  syncRings(world)
+}
+
+function forEachSoldierOnScreen(world: World, visit: (unit: number, x: number, y: number) => void): void {
   const camera = world.resource(RtsView).camera
   const { translation } = world.storage(Transform)
-  for (const eid of world.query(UNITS)) {
+  const soldiers = world.storage(Soldier)
+  for (const eid of world.query(SOLDIERS)) {
     point[0] = translation.x.get(eid)
-    point[1] = translation.y.get(eid) + UNIT_CENTER_HEIGHT
+    point[1] = translation.y.get(eid) + SOLDIER_CENTER_HEIGHT
     point[2] = translation.z.get(eid)
     const screen = worldToViewport(world, camera, point)
-    if (screen) visit(eid, screen[0], screen[1])
+    if (screen) visit(soldiers.unit.get(eid), screen[0], screen[1])
   }
 }
 
@@ -87,21 +95,21 @@ function selectRect(world: World, drag: DragState, additive: boolean): void {
   const maxX = Math.max(drag.startX, drag.currentX)
   const minY = Math.min(drag.startY, drag.currentY)
   const maxY = Math.max(drag.startY, drag.currentY)
-  const eids: number[] = []
-  forEachScreenPosition(world, (eid, x, y) => {
-    if (x >= minX && x <= maxX && y >= minY && y <= maxY) eids.push(eid)
+  const units = new Set<number>()
+  forEachSoldierOnScreen(world, (unit, x, y) => {
+    if (x >= minX && x <= maxX && y >= minY && y <= maxY) units.add(unit)
   })
-  setSelection(world, eids, additive)
+  setSelection(world, units, additive)
 }
 
 function selectClick(world: World, drag: DragState, additive: boolean): void {
   let nearest = -1
   let nearestDistance = CLICK_SELECT_RADIUS_PX
-  forEachScreenPosition(world, (eid, x, y) => {
+  forEachSoldierOnScreen(world, (unit, x, y) => {
     const distance = Math.hypot(x - drag.currentX, y - drag.currentY)
     if (distance > nearestDistance) return
     nearestDistance = distance
-    nearest = eid
+    nearest = unit
   })
   if (nearest >= 0) setSelection(world, [nearest], additive)
   else if (!additive) setSelection(world, [], false)
@@ -150,15 +158,16 @@ function updateGroups(world: World): void {
   const assign = CTRL_KEYS.some((code) => keys.held.has(code))
   const additive = SHIFT_KEYS.some((code) => keys.held.has(code))
   for (const code of keys.pressed) {
+    if (assign && code === 'KeyA') setSelection(world, world.query(UNITS), false)
     const key = DIGIT_CODE.exec(code)?.[1]
     if (key === undefined) continue
     if (assign) {
-      const eids = selectedUnits(world)
-      if (eids.length > 0) groups.set(key, eids)
+      const units = selectedUnits(world)
+      if (units.length > 0) groups.set(key, units)
       else groups.delete(key)
     } else {
-      const eids = groups.get(key)
-      if (eids) setSelection(world, eids, additive)
+      const units = groups.get(key)
+      if (units) setSelection(world, units, additive)
     }
   }
 }
