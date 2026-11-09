@@ -7,6 +7,7 @@ import { MoveSystem, UnitScratch } from './movement'
 const MIN_SEPARATION = SOLDIER_RADIUS * 2
 // Half the formation spacing lets a soldier fit exactly between two neighbours of another unit.
 const PASS_SEPARATION = FORMATION_SPACING / 2
+// Cells must be at least as wide as the largest separation distance so the 3×3 neighbouring cells hold every overlap.
 const GRID_COLUMNS = Math.ceil(MAP_SIZE / MIN_SEPARATION)
 const GRID_HALF_SIZE = MAP_SIZE / 2
 
