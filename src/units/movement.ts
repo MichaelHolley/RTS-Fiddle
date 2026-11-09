@@ -1,6 +1,6 @@
 import { Transform } from '@dylanebert/shallot'
 import type { Resource, System, Vector4Field, World } from '@dylanebert/shallot'
-import { SOLDIER_SPEED, UNIT_DRIFT_DISTANCE, UNIT_REFORM_DISTANCE, UNIT_SPEED } from '../config'
+import { SOLDIER_SPEED, SOLDIER_TURN_SPEED, UNIT_DRIFT_DISTANCE, UNIT_REFORM_DISTANCE, UNIT_SPEED } from '../config'
 import { MoveTarget, Soldier, Unit } from './components'
 import { slotToWorld } from './formation'
 import type { Point, SlotOffset } from './formation'
@@ -29,6 +29,18 @@ export const UnitScratch: Resource<{
 
 export function setHeading(rotation: Vector4Field, eid: number, heading: number): void {
   rotation.set(eid, 0, Math.sin(heading / 2), 0, Math.cos(heading / 2))
+}
+
+/** Turns a soldier toward `target` by at most `maxTurn` radians; returns whether it now faces `target`. */
+function turnToward(rotation: Vector4Field, eid: number, target: number, maxTurn: number): boolean {
+  const current = 2 * Math.atan2(rotation.y.get(eid), rotation.w.get(eid))
+  const delta = Math.atan2(Math.sin(target - current), Math.cos(target - current))
+  if (Math.abs(delta) <= maxTurn) {
+    setHeading(rotation, eid, target)
+    return true
+  }
+  setHeading(rotation, eid, current + Math.sign(delta) * maxTurn)
+  return false
 }
 
 function isIdle(world: World, unit: number): boolean {
@@ -109,6 +121,7 @@ function updateUnits(world: World): void {
 
 function moveSoldiers(world: World): void {
   const step = SOLDIER_SPEED * world.time.deltaTime
+  const maxTurn = SOLDIER_TURN_SPEED * world.time.deltaTime
   const { translation, rotation } = world.storage(Transform)
   const targets = world.storage(MoveTarget)
   const soldiers = world.storage(Soldier)
@@ -120,11 +133,11 @@ function moveSoldiers(world: World): void {
     if (distance <= ARRIVE_DISTANCE || distance <= step) {
       if (dx !== 0) translation.x.set(eid, targets.x.get(eid))
       if (dz !== 0) translation.z.set(eid, targets.z.get(eid))
-      setHeading(rotation, eid, targets.heading.get(eid))
-      if (isIdle(world, soldiers.unit.get(eid))) world.remove(eid, MoveTarget)
+      const facing = turnToward(rotation, eid, targets.heading.get(eid), maxTurn)
+      if (facing && isIdle(world, soldiers.unit.get(eid))) world.remove(eid, MoveTarget)
       continue
     }
-    setHeading(rotation, eid, Math.atan2(dx, dz))
+    turnToward(rotation, eid, Math.atan2(dx, dz), maxTurn)
     translation.x.set(eid, translation.x.get(eid) + (dx / distance) * step)
     translation.z.set(eid, translation.z.get(eid) + (dz / distance) * step)
   }

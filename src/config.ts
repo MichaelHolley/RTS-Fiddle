@@ -22,6 +22,8 @@ export const UNIT_SPEED = 5
 export const UNIT_REFORM_DISTANCE = 2
 export const UNIT_DRIFT_DISTANCE = 0.75
 export const SOLDIER_SPEED = 6
+/** Radians per second a soldier can turn. */
+export const SOLDIER_TURN_SPEED = Math.PI * 3
 export const SOLDIER_RADIUS = 0.5
 export const SOLDIER_CENTER_HEIGHT = 0.9
 export const SOLDIER_MODEL_URL = '/models/trooper.glb'

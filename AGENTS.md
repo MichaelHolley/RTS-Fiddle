@@ -69,7 +69,7 @@ A **unit type** (`UnitTypeId`, stats in `UNIT_TYPES`) holds per-type stats: name
 ### Formation movement
 
 - A unit marches as a block: its center advances at `UNIT_SPEED` toward the destination only while every soldier is within `UNIT_REFORM_DISTANCE` of its slot, so the formation waits for stragglers instead of stretching out.
-- Soldiers run (`SOLDIER_SPEED`, faster than `UNIT_SPEED` so they can catch up) to their slot, face the march direction while moving and the unit's facing once it stops. Idle soldiers pushed more than `UNIT_DRIFT_DISTANCE` off their slot walk back.
+- Soldiers run (`SOLDIER_SPEED`, faster than `UNIT_SPEED` so they can catch up) to their slot, turn at `SOLDIER_TURN_SPEED` to face the march direction while moving and the unit's facing once it stops. Idle soldiers pushed more than `UNIT_DRIFT_DISTANCE` off their slot walk back.
 - On a new order, `assignSlots` gives the front ranks to the soldiers already most forward along the new facing, left to right, so paths cross as little as possible. Soldiers keep that slot until the next order.
 - Soldiers push apart using a uniform grid (spatial hash) so each soldier only checks nearby cells. Within a unit they keep `2 × SOLDIER_RADIUS` apart. Soldiers of different units only keep `FORMATION_SPACING / 2` apart, so they fit between each other's files and units can pass through one another as in Total War. A marching unit has right of way over an idle one (between two marching units, the lower unit id wins): the other soldier steps sideways off its path instead of being shoved ahead, and the marching soldier is not pushed at all.
 ## Soldier model
