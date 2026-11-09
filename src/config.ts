@@ -1,7 +1,20 @@
-export const UNIT_COUNT = 10
-export const UNIT_SIZE = 50
-export const SOLDIER_COUNT = UNIT_COUNT * UNIT_SIZE
-export const UNIT_START_FILES = 10
+export interface UnitType {
+  name: string
+  /** Soldiers in a full-strength unit. */
+  size: number
+  startFiles: number
+}
+
+export const UnitTypeId = { Trooper: 0 } as const
+export type UnitTypeId = (typeof UnitTypeId)[keyof typeof UnitTypeId]
+
+export const UNIT_TYPES: Record<UnitTypeId, UnitType> = {
+  [UnitTypeId.Trooper]: { name: 'Trooper', size: 50, startFiles: 10 },
+}
+
+/** Units deployed at start, in deployment order. */
+export const ARMY: readonly UnitTypeId[] = Array.from({ length: 10 }, (): UnitTypeId => UnitTypeId.Trooper)
+export const SOLDIER_COUNT = ARMY.reduce((sum: number, type) => sum + UNIT_TYPES[type].size, 0)
 export const UNIT_MIN_FILES = 4
 export const UNIT_GAP = 3
 export const UNIT_SPEED = 5
@@ -28,6 +41,7 @@ export const CAMERA = {
 }
 export const DRAG_THRESHOLD_PX = 4
 export const CLICK_SELECT_RADIUS_PX = 20
+export const DOUBLE_CLICK_MS = 300
 export const SELECTION_RING = {
   radius: 0.55,
   lift: 0.03,

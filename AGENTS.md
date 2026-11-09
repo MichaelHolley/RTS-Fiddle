@@ -22,7 +22,7 @@ This is a vibe-coded MVP:
 
 - `src/main.ts` – `runApp` bootstrap
 - `src/app.ts` – `RtsPlugin`, depends on every plugin below
-- `src/config.ts` – all tuning constants
+- `src/config.ts` – all tuning constants, including the unit type table (`UNIT_TYPES`) and starting army (`ARMY`)
 - `src/camera/` – RTS camera (drives `Orbit` in Manual mode)
 - `src/units/` – components, army spawning, unit marching, soldier movement/separation/run animation, order planning (right-click move, right-drag frontage) and slot math
 - `src/input/` – unit selection, control groups, move orders, ground picking
@@ -37,18 +37,20 @@ Controls, terms and mechanics copy Total War (Warhammer / Three Kingdoms era). W
 
 ### Units and soldiers
 
-A **unit** is the selectable block (`Unit` entity: center, destination, facing, files × ranks); a **soldier** is one trooper (`Soldier` entity: owning unit plus a fixed slot in the unit's formation). **Files** are columns and **ranks** are rows; the front rank's width is the **frontage**. "Group" is reserved for Total War's Ctrl+G grouping of several units. Selection, control groups and orders work on units, never single soldiers.
+A **unit** is the selectable block (`Unit` entity: type, center, destination, facing, files × ranks); a **soldier** is one trooper (`Soldier` entity: owning unit plus a fixed slot in the unit's formation). **Files** are columns and **ranks** are rows; the front rank's width is the **frontage**. "Group" is reserved for Total War's Ctrl+G grouping of several units. Selection, control groups and orders work on units, never single soldiers.
+
+A **unit type** (`UnitTypeId`, stats in `UNIT_TYPES`) holds per-type stats: name, full-strength size and starting files. There is only `Trooper` so far; to add a type, add an id and a `UNIT_TYPES` entry and list it in `ARMY`. All types still share the trooper model and the global speed constants.
 
 ### Controls
 
 - **Camera** (`src/camera/rtsCamera.ts`): WASD/arrows or screen-edge pan, Q/E or middle-drag rotate, wheel zoom. Pan speed scales with zoom distance. Camera keys are ignored while Ctrl is held, so Ctrl+A doesn't pan.
 - **Browser shortcuts** (`src/input/browserShortcuts.ts`): every key's browser default is cancelled except reload (F5, Ctrl+R), fullscreen (F11), dev tools (F12, Ctrl+Shift+I/J/C) and Cmd combos. Ctrl+W/T/N/Tab can't be blocked by any page, so never bind them.
-- **Select**: left-click picks the unit of the nearest soldier on screen within `CLICK_SELECT_RADIUS_PX`; clicking empty ground deselects. Left-drag box-selects every unit with any soldier inside the box. Shift adds to the selection. Ctrl+A selects all.
+- **Select**: left-click picks the unit of the nearest soldier on screen within `CLICK_SELECT_RADIUS_PX`; clicking empty ground deselects. Left-drag box-selects every unit with any soldier inside the box. Double-clicking a unit (within `DOUBLE_CLICK_MS`) selects every unit of its type. Shift adds to the selection. Ctrl+A selects all.
 - **Control groups**: Ctrl+digit stores the selection (an empty selection clears the group); digit recalls it, Shift+digit adds it. The HUD shows each group's key and unit count.
 - **Move** (right-click): the selection keeps its relative layout and each unit its frontage, rotated to face the direction of travel from the selection's center to the click (`planMove`). A ring pings the click point.
 - **Frontage** (right-drag past `DRAG_THRESHOLD_PX`): the drag line becomes the combined front rank (`planFrontage`). Units are placed in their current left-to-right order along the line, each getting width in proportion to its soldier count with `UNIT_GAP` between units and at least `UNIT_MIN_FILES` files. The drag direction is the units' right, so dragging left-to-right on screen faces away from the camera. Footprint outlines with a facing arrow preview the result while dragging.
 - **Split** (X): each selected unit with at least two soldiers splits into a left and a right half standing side by side on its front rank (`planSplit`). The right half is a new unit that joins the original's control groups; both stay selected. Deliberate deviation: Total War has no in-battle split.
-- **Join** (C): the largest selected unit absorbs every other selected unit and reforms at their soldier-weighted center with their fronts combined (`planJoin`); absorbed units are destroyed and replaced in control groups. `sameUnitType` in `src/input/commands.ts` is a placeholder that will restrict joins to units of the same type once types exist. Deviation: Total War only merges in the campaign and caps the merged unit at full strength.
+- **Join** (C): only units of the same type merge. For each type in the selection, the largest selected unit absorbs the others and reforms at their soldier-weighted center with their fronts combined (`planJoin`); absorbed units are destroyed and replaced in control groups. Deviation: Total War only merges in the campaign and caps the merged unit at full strength.
 - Selected units show a ring under each soldier and their destination footprint until they arrive.
 
 ### Formation movement

@@ -93,11 +93,6 @@ function reformInPlace(world: World, plans: readonly UnitPlan[]): void {
   }
 }
 
-// Placeholder until units have types: joining must then require both units to be of the same type.
-function sameUnitType(_world: World, _a: number, _b: number): boolean {
-  return true
-}
-
 function editControlGroups(world: World, edit: (units: number[]) => number[]): void {
   const groups = world.resource(ControlGroups)
   for (const [key, units] of groups) groups.set(key, [...new Set(edit(units))])
@@ -106,13 +101,14 @@ function editControlGroups(world: World, edit: (units: number[]) => number[]): v
 // The right half becomes a new unit; both halves stay selected and in the original's control groups.
 function splitSelected(world: World): void {
   const soldiers = world.storage(Soldier)
+  const { type } = world.storage(Unit)
   const plans: UnitPlan[] = []
   const halves = new Map<number, number>()
   for (const [unit, members] of soldiersByUnit(world, selectedUnits(world))) {
     if (members.length < 2) continue
     const [left, right] = planSplit(unitPose(world, unit, members.length))
     const half = world.create()
-    world.add(half, Unit)
+    world.add(half, Unit, { type: type.get(unit) })
     const leftCount = left.layout.rows.reduce((sum, row) => sum + row.length, 0)
     members.sort((a, b) => soldiers.slotX.get(a.eid) - soldiers.slotX.get(b.eid))
     for (const { eid } of members.slice(leftCount)) soldiers.unit.set(eid, half)
@@ -129,21 +125,27 @@ function splitSelected(world: World): void {
   setSelection(world, halves.values(), true)
 }
 
-// The largest selected unit absorbs every other selected unit of its type; absorbed units are destroyed.
+// Total War merges only units of the same type: per type, the largest selected unit absorbs the others, which are destroyed.
 function joinSelected(world: World): void {
-  const poses = selectedPoses(world).sort((a, b) => b.count - a.count)
-  if (poses.length < 2) return
-  const [survivor] = poses
-  const joined = poses.filter((pose) => sameUnitType(world, survivor.unit, pose.unit))
-  if (joined.length < 2) return
-  const absorbed = new Set(joined.slice(1).map((pose) => pose.unit))
+  const { type } = world.storage(Unit)
   const soldiers = world.storage(Soldier)
-  for (const eid of world.query(SOLDIERS)) {
-    if (absorbed.has(soldiers.unit.get(eid))) soldiers.unit.set(eid, survivor.unit)
+  const survivors = new Map<number, number>()
+  const plans: UnitPlan[] = []
+  for (const poses of Map.groupBy(selectedPoses(world), (pose) => type.get(pose.unit)).values()) {
+    if (poses.length < 2) continue
+    poses.sort((a, b) => b.count - a.count)
+    const survivor = poses[0].unit
+    for (const pose of poses.slice(1)) survivors.set(pose.unit, survivor)
+    plans.push({ unit: survivor, ...planJoin(poses) })
   }
-  for (const unit of absorbed) world.destroy(unit)
-  reformInPlace(world, [{ unit: survivor.unit, ...planJoin(joined) }])
-  editControlGroups(world, (units) => units.map((unit) => (absorbed.has(unit) ? survivor.unit : unit)))
+  if (plans.length === 0) return
+  for (const eid of world.query(SOLDIERS)) {
+    const survivor = survivors.get(soldiers.unit.get(eid))
+    if (survivor !== undefined) soldiers.unit.set(eid, survivor)
+  }
+  for (const unit of survivors.keys()) world.destroy(unit)
+  reformInPlace(world, plans)
+  editControlGroups(world, (units) => units.map((unit) => survivors.get(unit) ?? unit))
 }
 
 function updateReorganize(world: World): void {

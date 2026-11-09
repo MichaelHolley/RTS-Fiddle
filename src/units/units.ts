@@ -12,6 +12,7 @@ import {
 import type { MeshHandle, Plugin, Resource, System, Vector4Field, World } from '@dylanebert/shallot'
 import type { MaterialHandle } from '@dylanebert/shallot/standard/rendering'
 import {
+  ARMY,
   CAMERA,
   FORMATION_SPACING,
   MAP_SIZE,
@@ -23,13 +24,11 @@ import {
   SOLDIER_MODEL_URL,
   SOLDIER_RADIUS,
   SOLDIER_SPEED,
-  UNIT_COUNT,
   UNIT_DRIFT_DISTANCE,
   UNIT_GAP,
   UNIT_REFORM_DISTANCE,
-  UNIT_SIZE,
   UNIT_SPEED,
-  UNIT_START_FILES,
+  UNIT_TYPES,
 } from '../config'
 import { loadGlb } from '../scene/gltf'
 import { RtsView, WorldPlugin } from '../scene/world'
@@ -395,30 +394,32 @@ function spawnSoldier(world: World, unit: number, position: Point, facing: numbe
   world.add(soldier, MeshMaterial, world.resource(SoldierMaterial))
 }
 
-// The army deploys in lines of units at the map center, facing away from the starting camera.
+// The army deploys in lines of units at the map center, facing away from the starting camera, spaced for the largest unit.
 function spawnArmy(world: World): void {
   const facing = CAMERA.yaw + Math.PI
-  const layout = gridLayout(UNIT_SIZE, UNIT_START_FILES)
-  const files = layout.rows[0].length
-  const ranks = layout.rows.length
-  const pitchX = (files - 1) * FORMATION_SPACING + UNIT_GAP
-  const pitchZ = (ranks - 1) * FORMATION_SPACING + UNIT_GAP
-  const perLine = Math.ceil(UNIT_COUNT / DEPLOY_LINES)
+  const layouts = ARMY.map((type) => gridLayout(UNIT_TYPES[type].size, UNIT_TYPES[type].startFiles))
+  const maxFiles = Math.max(...layouts.map((layout) => layout.rows[0].length))
+  const maxRanks = Math.max(...layouts.map((layout) => layout.rows.length))
+  const pitchX = (maxFiles - 1) * FORMATION_SPACING + UNIT_GAP
+  const pitchZ = (maxRanks - 1) * FORMATION_SPACING + UNIT_GAP
+  const perLine = Math.ceil(ARMY.length / DEPLOY_LINES)
   const origin: Point = { x: 0, z: 0 }
   const position: Point = { x: 0, z: 0 }
 
-  for (let i = 0; i < UNIT_COUNT; i++) {
+  layouts.forEach((layout, i) => {
     const line = Math.floor(i / perLine)
-    const inLine = Math.min(perLine, UNIT_COUNT - line * perLine)
+    const inLine = Math.min(perLine, ARMY.length - line * perLine)
     const offset = { x: ((i % perLine) - (inLine - 1) / 2) * pitchX, z: ((DEPLOY_LINES - 1) / 2 - line) * pitchZ }
     const center = slotToWorld(origin, facing, offset, { x: 0, z: 0 })
     const unit = world.create()
     const at: [number, number, number] = [center.x, 0, center.z]
-    world.add(unit, Unit, { center: at, destination: at, facing, files, ranks })
+    const files = layout.rows[0].length
+    const ranks = layout.rows.length
+    world.add(unit, Unit, { type: ARMY[i], center: at, destination: at, facing, files, ranks })
     for (const row of layout.rows) {
       for (const slot of row) spawnSoldier(world, unit, slotToWorld(center, facing, slot, position), facing, slot)
     }
-  }
+  })
 }
 
 function updateLodDebug(world: World): void {

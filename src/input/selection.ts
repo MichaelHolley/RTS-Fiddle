@@ -2,7 +2,7 @@ import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
 import { drawLine, Gizmo, GizmoAsset, LinesPlugin, registerGizmo } from '@dylanebert/shallot/extras'
 import { worldToViewport } from '@dylanebert/shallot/rendering'
-import { CLICK_SELECT_RADIUS_PX, DRAG_THRESHOLD_PX, SELECTION_RING, SOLDIER_CENTER_HEIGHT } from '../config'
+import { CLICK_SELECT_RADIUS_PX, DOUBLE_CLICK_MS, DRAG_THRESHOLD_PX, SELECTION_RING, SOLDIER_CENTER_HEIGHT } from '../config'
 import { RtsView, WorldPlugin } from '../scene/world'
 import { Selected, Soldier, Unit } from '../units/components'
 import { UnitsPlugin } from '../units/units'
@@ -26,6 +26,8 @@ export interface DragState {
 export const SelectionDrag: Resource<DragState> = {
   create: () => ({ startX: 0, startY: 0, currentX: 0, currentY: 0, dragging: false, active: false }),
 }
+
+const LastClick: Resource<{ unit: number; at: number }> = { create: () => ({ unit: -1, at: 0 }) }
 
 export const ControlGroups: Resource<Map<string, number[]>> = { create: () => new Map() }
 
@@ -111,8 +113,19 @@ function selectClick(world: World, drag: DragState, additive: boolean): void {
     nearestDistance = distance
     nearest = unit
   })
-  if (nearest >= 0) setSelection(world, [nearest], additive)
+  const last = world.resource(LastClick)
+  const now = world.time.realElapsed * 1000
+  const double = nearest >= 0 && nearest === last.unit && now - last.at <= DOUBLE_CLICK_MS
+  last.unit = double ? -1 : nearest
+  last.at = now
+  if (double) setSelection(world, unitsOfType(world, world.storage(Unit).type.get(nearest)), additive)
+  else if (nearest >= 0) setSelection(world, [nearest], additive)
   else if (!additive) setSelection(world, [], false)
+}
+
+function unitsOfType(world: World, type: number): number[] {
+  const units = world.storage(Unit)
+  return Array.from(world.query(UNITS)).filter((unit) => units.type.get(unit) === type)
 }
 
 function moveDrag(drag: DragState, x: number, y: number): void {
