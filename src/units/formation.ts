@@ -162,3 +162,34 @@ export function assignSlots(soldiers: readonly Placed[], layout: GridLayout, fac
   }
   return assignments
 }
+
+/** Splits a unit into a left and a right half standing side by side on its current front rank, keeping its facing. */
+export function planSplit(unit: UnitPose): [FormationPlan, FormationPlan] {
+  const leftCount = Math.ceil(unit.count / 2)
+  const rightCount = unit.count - leftCount
+  const leftFiles = Math.min(Math.ceil(unit.files / 2), leftCount)
+  const rightFiles = Math.min(Math.max(unit.files - leftFiles, 1), rightCount)
+  const leftWidth = (leftFiles - 1) * FORMATION_SPACING
+  const rightWidth = (rightFiles - 1) * FORMATION_SPACING
+  const halfSpan = (leftWidth + rightWidth + UNIT_GAP) / 2
+  const front = ((Math.ceil(unit.count / unit.files) - 1) * FORMATION_SPACING) / 2
+  const half = (count: number, files: number, x: number): FormationPlan => {
+    const layout = gridLayout(count, files)
+    const back = ((layout.rows.length - 1) * FORMATION_SPACING) / 2
+    const center = slotToWorld(unit, unit.facing, { x, z: front - back }, { x: 0, z: 0 })
+    return { layout, center, facing: unit.facing }
+  }
+  return [half(leftCount, leftFiles, leftWidth / 2 - halfSpan), half(rightCount, rightFiles, halfSpan - rightWidth / 2)]
+}
+
+/** Joins units into one block at their soldier-weighted center, as wide as their fronts combined, facing like the first. */
+export function planJoin(units: readonly UnitPose[]): FormationPlan {
+  const count = units.reduce((sum, unit) => sum + unit.count, 0)
+  const files = Math.min(units.reduce((sum, unit) => sum + unit.files, 0), count)
+  const center = { x: 0, z: 0 }
+  for (const unit of units) {
+    center.x += (unit.x * unit.count) / count
+    center.z += (unit.z * unit.count) / count
+  }
+  return { layout: gridLayout(count, files), center, facing: units[0].facing }
+}

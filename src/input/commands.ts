@@ -1,14 +1,16 @@
 import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
 import { DRAG_THRESHOLD_PX } from '../config'
-import { Soldier, Unit } from '../units/components'
-import { assignSlots, planFrontage, planMove } from '../units/formation'
+import { MoveTarget, Soldier, Unit } from '../units/components'
+import { assignSlots, planFrontage, planJoin, planMove, planSplit, slotToWorld } from '../units/formation'
 import type { Placed, Point, UnitPlan, UnitPose } from '../units/formation'
 import { UnitsPlugin } from '../units/units'
 import { pickGround } from './ground'
-import { selectedCount, selectedUnits, SelectionPlugin } from './selection'
+import { ControlGroups, CTRL_KEYS, selectedCount, selectedUnits, setSelection, SelectionPlugin } from './selection'
 
 const SOLDIERS = [Soldier]
+const SPLIT_KEY = 'KeyX'
+const JOIN_KEY = 'KeyC'
 
 export interface CommandState {
   drag: { startX: number; startY: number; anchor: Point } | null
@@ -32,17 +34,14 @@ function soldiersByUnit(world: World, units: readonly number[]): Map<number, Pla
   return byUnit
 }
 
-function selectedPoses(world: World): UnitPose[] {
+function unitPose(world: World, unit: number, count: number): UnitPose {
   const { center, facing, files } = world.storage(Unit)
+  return { unit, x: center.x.get(unit), z: center.z.get(unit), facing: facing.get(unit), count, files: files.get(unit) }
+}
+
+function selectedPoses(world: World): UnitPose[] {
   const byUnit = soldiersByUnit(world, selectedUnits(world))
-  return [...byUnit].map(([unit, soldiers]) => ({
-    unit,
-    x: center.x.get(unit),
-    z: center.z.get(unit),
-    facing: facing.get(unit),
-    count: soldiers.length,
-    files: files.get(unit),
-  }))
+  return [...byUnit].map(([unit, soldiers]) => unitPose(world, unit, soldiers.length))
 }
 
 function updatePreview(world: World, state: CommandState, x: number, y: number): void {
@@ -73,6 +72,85 @@ function issueOrders(world: World, plans: readonly UnitPlan[]): void {
       soldiers.slotZ.set(eid, slot.z)
     }
   }
+}
+
+// Snaps unit centers to the plan so soldiers run straight to their new slots instead of the block marching there.
+function reformInPlace(world: World, plans: readonly UnitPlan[]): void {
+  issueOrders(world, plans)
+  const units = world.storage(Unit)
+  const soldiers = world.storage(Soldier)
+  const byUnit = new Map(plans.map((plan) => [plan.unit, plan]))
+  for (const { unit, center } of plans) {
+    units.center.x.set(unit, center.x)
+    units.center.z.set(unit, center.z)
+  }
+  const target = { x: 0, z: 0 }
+  for (const eid of world.query(SOLDIERS)) {
+    const plan = byUnit.get(soldiers.unit.get(eid))
+    if (!plan || world.has(eid, MoveTarget)) continue
+    slotToWorld(plan.center, plan.facing, { x: soldiers.slotX.get(eid), z: soldiers.slotZ.get(eid) }, target)
+    world.add(eid, MoveTarget, { ...target, heading: plan.facing })
+  }
+}
+
+// Placeholder until units have types: joining must then require both units to be of the same type.
+function sameUnitType(_world: World, _a: number, _b: number): boolean {
+  return true
+}
+
+function editControlGroups(world: World, edit: (units: number[]) => number[]): void {
+  const groups = world.resource(ControlGroups)
+  for (const [key, units] of groups) groups.set(key, [...new Set(edit(units))])
+}
+
+// The right half becomes a new unit; both halves stay selected and in the original's control groups.
+function splitSelected(world: World): void {
+  const soldiers = world.storage(Soldier)
+  const plans: UnitPlan[] = []
+  const halves = new Map<number, number>()
+  for (const [unit, members] of soldiersByUnit(world, selectedUnits(world))) {
+    if (members.length < 2) continue
+    const [left, right] = planSplit(unitPose(world, unit, members.length))
+    const half = world.create()
+    world.add(half, Unit)
+    const leftCount = left.layout.rows.reduce((sum, row) => sum + row.length, 0)
+    members.sort((a, b) => soldiers.slotX.get(a.eid) - soldiers.slotX.get(b.eid))
+    for (const { eid } of members.slice(leftCount)) soldiers.unit.set(eid, half)
+    plans.push({ unit, ...left }, { unit: half, ...right })
+    halves.set(unit, half)
+  }
+  reformInPlace(world, plans)
+  editControlGroups(world, (units) =>
+    units.flatMap((unit) => {
+      const half = halves.get(unit)
+      return half === undefined ? [unit] : [unit, half]
+    }),
+  )
+  setSelection(world, halves.values(), true)
+}
+
+// The largest selected unit absorbs every other selected unit of its type; absorbed units are destroyed.
+function joinSelected(world: World): void {
+  const poses = selectedPoses(world).sort((a, b) => b.count - a.count)
+  if (poses.length < 2) return
+  const [survivor] = poses
+  const joined = poses.filter((pose) => sameUnitType(world, survivor.unit, pose.unit))
+  if (joined.length < 2) return
+  const absorbed = new Set(joined.slice(1).map((pose) => pose.unit))
+  const soldiers = world.storage(Soldier)
+  for (const eid of world.query(SOLDIERS)) {
+    if (absorbed.has(soldiers.unit.get(eid))) soldiers.unit.set(eid, survivor.unit)
+  }
+  for (const unit of absorbed) world.destroy(unit)
+  reformInPlace(world, [{ unit: survivor.unit, ...planJoin(joined) }])
+  editControlGroups(world, (units) => units.map((unit) => (absorbed.has(unit) ? survivor.unit : unit)))
+}
+
+function updateReorganize(world: World): void {
+  const { keys } = world.resource(Devices)
+  if (CTRL_KEYS.some((code) => keys.held.has(code))) return
+  if (keys.pressed.has(SPLIT_KEY)) splitSelected(world)
+  if (keys.pressed.has(JOIN_KEY)) joinSelected(world)
 }
 
 function updateCommands(world: World): void {
@@ -106,7 +184,10 @@ function updateCommands(world: World): void {
 const CommandSystem: System = {
   name: 'commands',
   group: 'setup',
-  update: updateCommands,
+  update(world) {
+    updateCommands(world)
+    updateReorganize(world)
+  },
 }
 
 export const CommandPlugin: Plugin = {
