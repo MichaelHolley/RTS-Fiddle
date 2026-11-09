@@ -16,6 +16,7 @@ export const UNIT_TYPES: Record<UnitTypeId, UnitType> = {
 export const ARMY: readonly UnitTypeId[] = Array.from({ length: 10 }, (): UnitTypeId => UnitTypeId.Trooper)
 export const SOLDIER_COUNT = ARMY.reduce((sum: number, type) => sum + UNIT_TYPES[type].size, 0)
 export const UNIT_MIN_FILES = 4
+export const UNIT_SPLIT_MIN_SOLDIERS = 9
 export const UNIT_GAP = 3
 export const UNIT_SPEED = 5
 export const UNIT_REFORM_DISTANCE = 2

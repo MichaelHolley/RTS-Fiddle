@@ -1,6 +1,6 @@
 import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
-import { DRAG_THRESHOLD_PX } from '../config'
+import { DRAG_THRESHOLD_PX, UNIT_SPLIT_MIN_SOLDIERS } from '../config'
 import { MoveTarget, Soldier, Unit } from '../units/components'
 import { assignSlots, planFrontage, planJoin, planMove, planSplit, slotToWorld } from '../units/formation'
 import type { Placed, Point, UnitPlan, UnitPose } from '../units/formation'
@@ -105,7 +105,7 @@ function splitSelected(world: World): void {
   const plans: UnitPlan[] = []
   const halves = new Map<number, number>()
   for (const [unit, members] of soldiersByUnit(world, selectedUnits(world))) {
-    if (members.length < 2) continue
+    if (members.length < UNIT_SPLIT_MIN_SOLDIERS) continue
     const [left, right] = planSplit(unitPose(world, unit, members.length))
     const half = world.create()
     world.add(half, Unit, { type: type.get(unit) })
