@@ -1,11 +1,9 @@
 import {
   Camera,
   DirectionalLight,
-  eulerToQuat,
   GlobalAmbientLight,
   lookAtRotation,
   Materials,
-  Meshes,
   MeshInstance,
   MeshMaterial,
   StandardMaterial,
@@ -16,10 +14,6 @@ import type { Plugin, Resource, World } from '@dylanebert/shallot'
 import { Orbit, OrbitMode, OrbitPlugin } from '@dylanebert/shallot/extras'
 import { CAMERA, MAP_SIZE } from '../config'
 import { linear } from './color'
-import { cylinder } from './meshes'
-
-const PROP_COUNT = 20
-const PROP_AREA = MAP_SIZE * 0.9
 
 export const RtsView: Resource<{ camera: number }> = { create: () => ({ camera: 0 }) }
 
@@ -49,38 +43,6 @@ function createGround(world: World): void {
   )
 }
 
-function createProps(world: World): void {
-  const materials = world.resource(Materials)
-  const cylinderMesh = world.resource(Meshes).add({ name: 'cylinder', ...cylinder() })
-  for (let i = 0; i < PROP_COUNT; i++) {
-    const width = 2 + Math.random() * 6
-    const height = 2 + Math.random() * 8
-    const shade = 0.35 + Math.random() * 0.35
-
-    const prop = world.create()
-    world.add(prop, Transform, {
-      translation: [
-        (Math.random() - 0.5) * PROP_AREA,
-        height / 2,
-        (Math.random() - 0.5) * PROP_AREA,
-      ],
-      rotation: eulerToQuat(0, Math.random() * Math.PI, 0),
-      scale: [width, height, width],
-    })
-    world.add(prop, MeshInstance, Math.random() < 0.5 ? {} : { mesh: cylinderMesh })
-    world.add(
-      prop,
-      MeshMaterial,
-      materials.add(
-        StandardMaterial({
-          baseColor: [linear(shade), linear(shade), linear(shade * 0.95), 1],
-          perceptualRoughness: 0.9,
-        }),
-      ),
-    )
-  }
-}
-
 function createCamera(world: World): void {
   const camera = world.create()
   world.add(camera, Camera, { clearColor: 0x0f1217, fov: 45 })
@@ -103,7 +65,6 @@ export const WorldPlugin: Plugin = {
   initialize(world) {
     createLights(world)
     createGround(world)
-    createProps(world)
     createCamera(world)
   },
 }

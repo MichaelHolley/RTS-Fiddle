@@ -1,4 +1,7 @@
-import type { Geometry } from './meshes'
+export interface Geometry {
+  vertices: Float32Array
+  indices: Uint32Array
+}
 
 const GLB_MAGIC = 0x46546c67
 const CHUNK_JSON = 0x4e4f534a

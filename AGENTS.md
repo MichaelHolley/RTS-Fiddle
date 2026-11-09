@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Browser 3D RTS prototype: Vite + TypeScript + Shallot (WebGPU ECS engine), Bun. Props are placeholder meshes; units use the Blender-made trooper model.
+Browser 3D RTS prototype: Vite + TypeScript + Shallot (WebGPU ECS engine), Bun. The map is a flat ground plane; units use the Blender-made trooper model.
 
 ## User context
 
@@ -26,7 +26,7 @@ This is a vibe-coded MVP:
 - `src/camera/` – RTS camera (drives `Orbit` in Manual mode)
 - `src/units/` – components, army spawning, unit marching, soldier movement/separation/run animation, order planning (right-click move, right-drag frontage) and slot math
 - `src/input/` – unit selection, control groups, move orders, ground picking
-- `src/scene/` – world setup, mesh helpers, GLB loader, color conversion
+- `src/scene/` – world setup, GLB loader, color conversion
 - `src/ui/` – world-space line markers and DOM HUD/selection box
 - `assets/trooper.blend` – trooper source: mesh, rig, `Run` action, and the text blocks `build_trooper.py` (rebuilds mesh + rig + palette) and `export_trooper.py` (bakes frames, writes the GLB)
 - `public/models/trooper.glb` – exported unit model
@@ -48,7 +48,7 @@ A **unit** is the selectable block (`Unit` entity: center, destination, facing, 
 - **Move** (right-click): the selection keeps its relative layout and each unit its frontage, rotated to face the direction of travel from the selection's center to the click (`planMove`). A ring pings the click point.
 - **Frontage** (right-drag past `DRAG_THRESHOLD_PX`): the drag line becomes the combined front rank (`planFrontage`). Units are placed in their current left-to-right order along the line, each getting width in proportion to its soldier count with `UNIT_GAP` between units and at least `UNIT_MIN_FILES` files. The drag direction is the units' right, so dragging left-to-right on screen faces away from the camera. Footprint outlines with a facing arrow preview the result while dragging.
 - **Split** (X): each selected unit with at least two soldiers splits into a left and a right half standing side by side on its front rank (`planSplit`). The right half is a new unit that joins the original's control groups; both stay selected. Deliberate deviation: Total War has no in-battle split.
-- **Join** (C): the largest selected unit absorbs every other selected unit, marching to their soldier-weighted center with their fronts combined (`planJoin`); absorbed units are destroyed and replaced in control groups. `sameUnitType` in `src/input/commands.ts` is a placeholder that will restrict joins to units of the same type once types exist. Deviation: Total War only merges in the campaign and caps the merged unit at full strength.
+- **Join** (C): the largest selected unit absorbs every other selected unit and reforms at their soldier-weighted center with their fronts combined (`planJoin`); absorbed units are destroyed and replaced in control groups. `sameUnitType` in `src/input/commands.ts` is a placeholder that will restrict joins to units of the same type once types exist. Deviation: Total War only merges in the campaign and caps the merged unit at full strength.
 - Selected units show a ring under each soldier and their destination footprint until they arrive.
 
 ### Formation movement
