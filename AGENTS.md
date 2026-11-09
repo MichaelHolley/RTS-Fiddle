@@ -22,7 +22,7 @@ This is a vibe-coded MVP:
 
 - `src/main.ts` – `runApp` bootstrap
 - `src/app.ts` – `RtsPlugin`, depends on every plugin below
-- `src/config.ts` – all tuning constants, including the unit type table (`UNIT_TYPES`), starting army (`ARMY`) and every game key binding (`KEYS`; check it for clashes before binding a key)
+- `src/config.ts` – all tuning constants, including the unit type table (`UNIT_TYPES`), starting army (`ARMY`) and every game key binding (`KEYS`)
 - `src/camera/` – RTS camera (drives `Orbit` in Manual mode)
 - `src/units/` – `components.ts` (ECS components), `units.ts` (`UnitsPlugin`, army spawning), `movement.ts` (unit marching, soldier movement to slots), `separation.ts` (spatial-hash push-apart and right of way), `animation.ts` (run cycle and LOD frame swap), `model.ts` (trooper GLB, material, LOD distance), `lodDebug.ts` (L-key LOD highlight), `formation.ts` (order planning – right-click move, right-drag frontage, split, join – and slot math)
 - `src/input/` – unit selection, control groups, move orders, ground picking
@@ -30,6 +30,19 @@ This is a vibe-coded MVP:
 - `src/ui/` – world-space line markers and DOM HUD/selection box
 - `assets/trooper.blend` – trooper source: mesh, rig, `Run` action, and the text blocks `build_trooper.py` (rebuilds mesh + rig + palette) and `export_trooper.py` (bakes frames, writes the GLB)
 - `public/models/trooper.glb` – exported unit model
+
+## File composition
+
+- One concern per file: a file owns one system (or a tight `after:` chain of them) plus the resources, constants and helpers only it uses. When a file's name no longer describes everything in it, split it. New per-soldier behaviour (combat, morale) gets its own file and `System`, ordered with `after:` against the existing chain.
+- Keep a helper or constant in the file that uses it; move it to a shared module once a second file needs it. Tuning values and key bindings go in `src/config.ts`.
+- Each file declares its own query arrays (`const SOLDIERS = [Soldier]`); repeating these one-liners across files is intended.
+- Imports form a one-way graph: a plugin file (e.g. `units.ts`) imports its systems, and a system file imports components, `formation.ts`, `config.ts`, shared helpers and the systems it runs `after`, never its plugin file. A cycle breaks `after:` references at startup.
+- After a split, update the Structure list above.
+
+## Keyboard input
+
+- Every game key binding is a `KEYS` entry in `src/config.ts`: a list of `KeyboardEvent.code` values. Read it with `anyKey` from `src/input/keys.ts`: `anyKey(keys.pressed, KEYS.x)` for one-shot actions, `anyKey(keys.held, KEYS.x)` for continuous ones. Key-code strings live only in `KEYS`, apart from the browser's own keys in `src/input/browserShortcuts.ts`.
+- Check `KEYS` for clashes before adding a binding. Ctrl+letter is reserved for commands: the camera ignores every key and split/join skip X/C while Ctrl is held, which is how A pans left and Ctrl+A selects all.
 
 ## Total War reference
 
@@ -43,7 +56,7 @@ A **unit type** (`UnitTypeId`, stats in `UNIT_TYPES`) holds per-type stats: name
 
 ### Controls
 
-- **Camera** (`src/camera/rtsCamera.ts`): WASD/arrows or screen-edge pan, Q/E or middle-drag rotate, wheel zoom. Pan speed scales with zoom distance. Camera keys are ignored while Ctrl is held, so Ctrl+A doesn't pan.
+- **Camera** (`src/camera/rtsCamera.ts`): WASD/arrows or screen-edge pan, Q/E or middle-drag rotate, wheel zoom. Pan speed scales with zoom distance.
 - **Browser shortcuts** (`src/input/browserShortcuts.ts`): every key's browser default is cancelled except reload (F5, Ctrl+R), fullscreen (F11), dev tools (F12, Ctrl+Shift+I/J/C) and Cmd combos. Ctrl+W/T/N/Tab can't be blocked by any page, so never bind them.
 - **Select**: left-click picks the unit of the nearest soldier on screen within `CLICK_SELECT_RADIUS_PX`; clicking empty ground deselects. Left-drag box-selects every unit with any soldier inside the box. Double-clicking a unit (within `DOUBLE_CLICK_MS`) selects every unit of its type. Shift adds to the selection. Ctrl+A selects all.
 - **Control groups**: Ctrl+digit stores the selection (an empty selection clears the group); digit recalls it, Shift+digit adds it. The HUD shows each group's key and unit count.
