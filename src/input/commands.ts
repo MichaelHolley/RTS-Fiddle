@@ -1,16 +1,15 @@
 import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
-import { DRAG_THRESHOLD_PX, UNIT_SPLIT_MIN_SOLDIERS } from '../config'
+import { DRAG_THRESHOLD_PX, KEYS, UNIT_SPLIT_MIN_SOLDIERS } from '../config'
 import { MoveTarget, Soldier, Unit } from '../units/components'
 import { assignSlots, planFrontage, planJoin, planMove, planSplit, slotToWorld } from '../units/formation'
 import type { Placed, Point, UnitPlan, UnitPose } from '../units/formation'
 import { UnitsPlugin } from '../units/units'
 import { pickGround } from './ground'
-import { ControlGroups, CTRL_KEYS, selectedCount, selectedUnits, setSelection, SelectionPlugin } from './selection'
+import { anyKey } from './keys'
+import { ControlGroups, selectedCount, selectedUnits, setSelection, SelectionPlugin } from './selection'
 
 const SOLDIERS = [Soldier]
-const SPLIT_KEY = 'KeyX'
-const JOIN_KEY = 'KeyC'
 
 export interface CommandState {
   drag: { startX: number; startY: number; anchor: Point } | null
@@ -150,9 +149,9 @@ function joinSelected(world: World): void {
 
 function updateReorganize(world: World): void {
   const { keys } = world.resource(Devices)
-  if (CTRL_KEYS.some((code) => keys.held.has(code))) return
-  if (keys.pressed.has(SPLIT_KEY)) splitSelected(world)
-  if (keys.pressed.has(JOIN_KEY)) joinSelected(world)
+  if (anyKey(keys.held, KEYS.ctrl)) return
+  if (anyKey(keys.pressed, KEYS.split)) splitSelected(world)
+  if (anyKey(keys.pressed, KEYS.join)) joinSelected(world)
 }
 
 function updateCommands(world: World): void {

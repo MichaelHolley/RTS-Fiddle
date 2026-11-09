@@ -1,18 +1,13 @@
 import { Devices, Viewports } from '@dylanebert/shallot'
 import type { Plugin, System, World } from '@dylanebert/shallot'
 import { Orbit, OrbitPlugin } from '@dylanebert/shallot/extras'
-import { CAMERA, MAP_SIZE } from '../config'
-import { CTRL_KEYS } from '../input/selection'
+import { CAMERA, KEYS, MAP_SIZE } from '../config'
+import { anyKey } from '../input/keys'
 import { RtsView, WorldPlugin } from '../scene/world'
 
 const HALF_MAP = MAP_SIZE / 2
 const ZOOM_STEP = 0.1
 const DRAG_ROTATE_SPEED = 0.005
-
-const FORWARD_KEYS = ['KeyW', 'ArrowUp']
-const BACK_KEYS = ['KeyS', 'ArrowDown']
-const RIGHT_KEYS = ['KeyD', 'ArrowRight']
-const LEFT_KEYS = ['KeyA', 'ArrowLeft']
 
 const NO_KEYS: ReadonlySet<string> = new Set()
 
@@ -21,26 +16,26 @@ const clamp = (value: number, min: number, max: number): number =>
 
 function axis(
   held: ReadonlySet<string>,
-  positive: string[],
-  negative: string[],
+  positive: readonly string[],
+  negative: readonly string[],
   edgePositive: boolean,
   edgeNegative: boolean,
 ): number {
-  const plus = edgePositive || positive.some((code) => held.has(code))
-  const minus = edgeNegative || negative.some((code) => held.has(code))
+  const plus = edgePositive || anyKey(held, positive)
+  const minus = edgeNegative || anyKey(held, negative)
   return Number(plus) - Number(minus)
 }
 
 function updateCamera(world: World): void {
   const { keys, pointer } = world.resource(Devices)
   // Ctrl+letter is a command (Ctrl+A select all), not a camera move
-  const held = CTRL_KEYS.some((code) => keys.held.has(code)) ? NO_KEYS : keys.held
+  const held = anyKey(keys.held, KEYS.ctrl) ? NO_KEYS : keys.held
   const orbit = world.storage(Orbit)
   const eid = world.resource(RtsView).camera
   const dt = world.time.deltaTime
 
   let yaw = orbit.yaw.get(eid)
-  yaw += (Number(held.has('KeyE')) - Number(held.has('KeyQ'))) * CAMERA.rotateSpeed * dt
+  yaw += (Number(anyKey(held, KEYS.rotateRight)) - Number(anyKey(held, KEYS.rotateLeft))) * CAMERA.rotateSpeed * dt
   if (pointer.middle) yaw -= pointer.deltaX * DRAG_ROTATE_SPEED
 
   if (pointer.scroll !== 0) {
@@ -51,15 +46,15 @@ function updateCamera(world: World): void {
   const view = pointer.hover && !pointer.middle ? world.resource(Viewports).get(0) : undefined
   const forwardAmount = axis(
     held,
-    FORWARD_KEYS,
-    BACK_KEYS,
+    KEYS.panForward,
+    KEYS.panBack,
     view !== undefined && pointer.y < CAMERA.edgePanPx,
     view !== undefined && pointer.y > view.cssHeight - CAMERA.edgePanPx,
   )
   const rightAmount = axis(
     held,
-    RIGHT_KEYS,
-    LEFT_KEYS,
+    KEYS.panRight,
+    KEYS.panLeft,
     view !== undefined && pointer.x > view.cssWidth - CAMERA.edgePanPx,
     view !== undefined && pointer.x < CAMERA.edgePanPx,
   )

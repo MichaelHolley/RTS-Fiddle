@@ -2,17 +2,16 @@ import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
 import { drawLine, Gizmo, GizmoAsset, LinesPlugin, registerGizmo } from '@dylanebert/shallot/extras'
 import { worldToViewport } from '@dylanebert/shallot/rendering'
-import { CLICK_SELECT_RADIUS_PX, DOUBLE_CLICK_MS, DRAG_THRESHOLD_PX, SELECTION_RING, SOLDIER_CENTER_HEIGHT } from '../config'
+import { CLICK_SELECT_RADIUS_PX, DOUBLE_CLICK_MS, DRAG_THRESHOLD_PX, KEYS, SELECTION_RING, SOLDIER_CENTER_HEIGHT } from '../config'
 import { RtsView, WorldPlugin } from '../scene/world'
 import { Selected, Soldier, Unit } from '../units/components'
 import { UnitsPlugin } from '../units/units'
+import { anyKey } from './keys'
 
 const UNITS = [Unit]
 const SOLDIERS = [Soldier]
 const SELECTED_UNITS = [Unit, Selected]
 const DIGIT_CODE = /^Digit(\d)$/
-const SHIFT_KEYS = ['ShiftLeft', 'ShiftRight']
-export const CTRL_KEYS = ['ControlLeft', 'ControlRight']
 
 export interface DragState {
   startX: number
@@ -153,7 +152,7 @@ function updateDrag(world: World): void {
       drag.active = true
     } else if (drag.active) {
       moveDrag(drag, event.x, event.y)
-      const additive = SHIFT_KEYS.some((code) => keys.held.has(code))
+      const additive = anyKey(keys.held, KEYS.shift)
       if (drag.dragging) selectRect(world, drag, additive)
       else selectClick(world, drag, additive)
       endDrag(drag)
@@ -168,10 +167,10 @@ function updateDrag(world: World): void {
 function updateGroups(world: World): void {
   const { keys } = world.resource(Devices)
   const groups = world.resource(ControlGroups)
-  const assign = CTRL_KEYS.some((code) => keys.held.has(code))
-  const additive = SHIFT_KEYS.some((code) => keys.held.has(code))
+  const assign = anyKey(keys.held, KEYS.ctrl)
+  const additive = anyKey(keys.held, KEYS.shift)
+  if (assign && anyKey(keys.pressed, KEYS.selectAll)) setSelection(world, world.query(UNITS), false)
   for (const code of keys.pressed) {
-    if (assign && code === 'KeyA') setSelection(world, world.query(UNITS), false)
     const key = DIGIT_CODE.exec(code)?.[1]
     if (key === undefined) continue
     if (assign) {

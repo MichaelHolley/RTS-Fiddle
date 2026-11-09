@@ -50,3 +50,18 @@ export const SELECTION_RING = {
   width: 2,
   color: 0x5cff7a,
 }
+
+export const KEYS = {
+  panForward: ['KeyW', 'ArrowUp'],
+  panBack: ['KeyS', 'ArrowDown'],
+  panLeft: ['KeyA', 'ArrowLeft'],
+  panRight: ['KeyD', 'ArrowRight'],
+  rotateLeft: ['KeyQ'],
+  rotateRight: ['KeyE'],
+  selectAll: ['KeyA'],
+  split: ['KeyX'],
+  join: ['KeyC'],
+  lodDebug: ['KeyL'],
+  ctrl: ['ControlLeft', 'ControlRight'],
+  shift: ['ShiftLeft', 'ShiftRight'],
+} satisfies Record<string, readonly string[]>

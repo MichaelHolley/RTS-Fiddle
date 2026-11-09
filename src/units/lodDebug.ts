@@ -1,10 +1,11 @@
 import { Devices, MeshMaterial, Transform } from '@dylanebert/shallot'
 import type { Resource, System, World } from '@dylanebert/shallot'
 import type { MaterialHandle } from '@dylanebert/shallot/standard/rendering'
+import { KEYS } from '../config'
+import { anyKey } from '../input/keys'
 import { Soldier } from './components'
 import { cameraPosition, soldierMaterial, SoldierMaterial, usesLod } from './model'
 
-const LOD_DEBUG_KEY = 'KeyL'
 const LOD_DEBUG_TINT = [1, 0.1, 1, 1] as const
 
 const SOLDIERS = [Soldier]
@@ -18,7 +19,7 @@ export const SoldierLod: Resource<{ highlight: boolean; count: number }> = {
 
 function updateLodDebug(world: World): void {
   const state = world.resource(SoldierLod)
-  if (world.resource(Devices).keys.pressed.has(LOD_DEBUG_KEY)) state.highlight = !state.highlight
+  if (anyKey(world.resource(Devices).keys.pressed, KEYS.lodDebug)) state.highlight = !state.highlight
   const normal = world.resource(SoldierMaterial).material
   const tinted = world.resource(LodDebugMaterial).material
   const { translation } = world.storage(Transform)
