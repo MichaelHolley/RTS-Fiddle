@@ -23,7 +23,7 @@ This is a vibe-coded MVP:
 - Game design lives in `docs/design/`, one file per mechanic; asset pipelines live in `docs/pipeline/`. Read the relevant file before changing a mechanic or asset, and update it in the same commit. A new mechanic gets its own file.
 - Docs describe player-visible behaviour and why. How it is computed belongs in the code, as a JSDoc or `//` comment on the system.
 - Docs refer to constants by name (`UNIT_SPEED`), never by value.
-- Use the terms in `docs/design/units.md` (unit, soldier, files, ranks, frontage, group) in code, UI and docs.
+- Use the terms in `docs/design/units.md` (unit, soldier, files, ranks, frontage) in code, UI and docs.
 
 ## Total War reference
 
