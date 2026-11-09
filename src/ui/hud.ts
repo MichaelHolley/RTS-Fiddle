@@ -2,7 +2,7 @@ import type { World } from '@dylanebert/shallot'
 import { blockBrowserShortcuts } from '../input/browserShortcuts'
 import { ControlGroups, selectedCount, SelectionDrag } from '../input/selection'
 import { Selected, Soldier, Unit } from '../units/components'
-import { SoldierLod } from '../units/units'
+import { SoldierLod } from '../units/lodDebug'
 
 const REFRESH_MS = 250
 const UNITS = [Unit]

@@ -24,7 +24,7 @@ This is a vibe-coded MVP:
 - `src/app.ts` – `RtsPlugin`, depends on every plugin below
 - `src/config.ts` – all tuning constants, including the unit type table (`UNIT_TYPES`) and starting army (`ARMY`)
 - `src/camera/` – RTS camera (drives `Orbit` in Manual mode)
-- `src/units/` – components, army spawning, unit marching, soldier movement/separation/run animation, order planning (right-click move, right-drag frontage) and slot math
+- `src/units/` – `components.ts` (ECS components), `units.ts` (`UnitsPlugin`, army spawning), `movement.ts` (unit marching, soldier movement to slots), `separation.ts` (spatial-hash push-apart and right of way), `animation.ts` (run cycle and LOD frame swap), `model.ts` (trooper GLB, material, LOD distance), `lodDebug.ts` (L-key LOD highlight), `formation.ts` (order planning – right-click move, right-drag frontage, split, join – and slot math)
 - `src/input/` – unit selection, control groups, move orders, ground picking
 - `src/scene/` – world setup, GLB loader, color conversion
 - `src/ui/` – world-space line markers and DOM HUD/selection box
