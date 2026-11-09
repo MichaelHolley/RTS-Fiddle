@@ -4,21 +4,22 @@ Shallot has no skinning or glTF loader, so the rig is baked into static meshes. 
 
 ## Source
 
-Each unit type has a `.blend` in `assets/` holding the mesh, the rig, the `Run` action and two text blocks:
+Each unit type has a `.blend` in `assets/` holding the mesh, the rig, the `Run` action and text blocks (the Trooper also has an `Aim` action):
 
 | Unit type | Source                   | Scripts                                    | Output                        |
 | --------- | ------------------------ | ------------------------------------------ | ----------------------------- |
-| Trooper   | `assets/trooper.blend`   | `build_trooper.py`, `export_trooper.py`    | `public/models/trooper.glb`   |
+| Trooper   | `assets/trooper.blend`   | `build_trooper.py`, `animate_trooper.py`, `export_trooper.py` | `public/models/trooper.glb`   |
 | Vanguard  | `assets/vanguard.blend`  | `build_vanguard.py`, `export_vanguard.py`  | `public/models/vanguard.glb`  |
 
 - `build_<type>.py` rebuilds the mesh, the rig and the palette.
+- `animate_trooper.py` generates the Trooper's `Run` and `Aim` actions: foot placement and the two-handed grip are solved with IK (inverse kinematics: joint angles worked out from where the feet and hands must be). Re-run it after `build_trooper.py`.
 - `export_<type>.py` bakes the frames and writes the GLB.
 
-To change a model, edit it in Blender and run its export script. All rigs share the trooper's joints and bone names, so a new unit type can copy the `Run` action from `trooper.blend`.
+To change a model, edit it in Blender and run its export script. All rigs share the trooper's joints and bone names, so a new unit type can copy the `Run` action from `trooper.blend`. The Trooper's rig also has a `gun` bone (child of `chest`) that carries the carbine, so both hands can hold it.
 
 ## GLB layout
 
-- Static meshes `idle` and `run_00`…`run_NN`: Y up, facing +Z, feet at the origin.
+- Static meshes `idle` (the Trooper's is its `Aim` pose, the Vanguard's the rest pose) and `run_00`…`run_NN`: Y up, facing +Z, feet at the origin.
 - The same set prefixed `lod_`, baked from the low-detail `<Type>_LOD` mesh.
 - Optionally the same set prefixed `fx_`, baked from `<Type>_FX`: glowing parts (the Vanguard's holo shield, blade aura and lightning arcs). The game draws these unlit and additively, so their palette colors set how much light they add.
 - All meshes share one embedded palette PNG that their UVs point into.
