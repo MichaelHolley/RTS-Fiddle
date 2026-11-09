@@ -80,16 +80,17 @@ function updateUnits(world: World): void {
     const dz = destination.z.get(unit) - center.z.get(unit)
     const remaining = Math.hypot(dx, dz)
     if (remaining === 0) continue
-    marching.set(unit, Math.atan2(dx, dz))
-    if ((lags.get(unit) ?? 0) > UNIT_REFORM_DISTANCE) continue
-    const step = UNIT_SPEED * world.time.deltaTime
-    if (remaining <= step) {
-      center.x.set(unit, destination.x.get(unit))
-      center.z.set(unit, destination.z.get(unit))
-    } else {
+    if ((lags.get(unit) ?? 0) <= UNIT_REFORM_DISTANCE) {
+      const step = UNIT_SPEED * world.time.deltaTime
+      if (remaining <= step) {
+        center.x.set(unit, destination.x.get(unit))
+        center.z.set(unit, destination.z.get(unit))
+        continue
+      }
       center.x.set(unit, center.x.get(unit) + (dx / remaining) * step)
       center.z.set(unit, center.z.get(unit) + (dz / remaining) * step)
     }
+    marching.set(unit, Math.atan2(dx, dz))
   }
 
   for (const eid of world.query(SOLDIERS)) {
