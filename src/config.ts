@@ -3,17 +3,23 @@ export interface UnitType {
   /** Soldiers in a full-strength unit. */
   size: number
   startFiles: number
+  /** GLB of the soldier's baked frames, see `docs/pipeline/soldier-model.md`. */
+  model: string
 }
 
-export const UnitTypeId = { Trooper: 0 } as const
+export const UnitTypeId = { Trooper: 0, Vanguard: 1 } as const
 export type UnitTypeId = (typeof UnitTypeId)[keyof typeof UnitTypeId]
 
 export const UNIT_TYPES: Record<UnitTypeId, UnitType> = {
-  [UnitTypeId.Trooper]: { name: 'Trooper', size: 50, startFiles: 10 },
+  [UnitTypeId.Trooper]: { name: 'Trooper', size: 50, startFiles: 10, model: '/models/trooper.glb' },
+  [UnitTypeId.Vanguard]: { name: 'Vanguard', size: 40, startFiles: 10, model: '/models/vanguard.glb' },
 }
 
-/** Units deployed at start, in deployment order. */
-export const ARMY: readonly UnitTypeId[] = Array.from({ length: 10 }, (): UnitTypeId => UnitTypeId.Trooper)
+/** Units deployed at start, in deployment order: the front line first. */
+export const ARMY: readonly UnitTypeId[] = [
+  ...Array<UnitTypeId>(5).fill(UnitTypeId.Vanguard),
+  ...Array<UnitTypeId>(5).fill(UnitTypeId.Trooper),
+]
 export const SOLDIER_COUNT = ARMY.reduce((sum: number, type) => sum + UNIT_TYPES[type].size, 0)
 export const UNIT_MIN_FILES = 4
 export const UNIT_SPLIT_MIN_SOLDIERS = 9
@@ -26,7 +32,6 @@ export const SOLDIER_SPEED = 6
 export const SOLDIER_TURN_SPEED = Math.PI * 3
 export const SOLDIER_RADIUS = 0.5
 export const SOLDIER_CENTER_HEIGHT = 0.9
-export const SOLDIER_MODEL_URL = '/models/trooper.glb'
 export const SOLDIER_LOD_DISTANCE = 35
 export const RUN_CYCLE_LENGTH = 3
 export const RUN_CYCLE_JITTER = 0.15

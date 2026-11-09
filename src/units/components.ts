@@ -1,4 +1,4 @@
-import { component, entity, f32, u32, vec3 } from '@dylanebert/shallot'
+import { component, entity, f32, i32, u32, vec3 } from '@dylanebert/shallot'
 
 /** `type` is a `UnitTypeId`. */
 export const Unit = component('Unit', {
@@ -12,4 +12,13 @@ export const Unit = component('Unit', {
 export const Selected = component('Selected', {})
 export const Soldier = component('Soldier', { unit: entity, slotX: f32, slotZ: f32 })
 export const MoveTarget = component('MoveTarget', { x: f32, z: f32, heading: f32 })
-export const SoldierAnimation = component('SoldierAnimation', { phase: f32, cycleLength: f32, lastX: f32, lastZ: f32 })
+/** `frame` is the shown run frame, or -1 while idle. */
+export const SoldierAnimation = component('SoldierAnimation', {
+  phase: f32,
+  cycleLength: f32,
+  lastX: f32,
+  lastZ: f32,
+  frame: i32,
+})
+/** The entity drawing this soldier's glowing parts (see `glow.ts`). */
+export const SoldierGlow = component('SoldierGlow', { entity: entity })
