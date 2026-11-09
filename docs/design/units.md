@@ -8,7 +8,7 @@
 
 ## Unit types
 
-A unit type (`UnitTypeId`) has its stats in `UNIT_TYPES`: name, full-strength size, starting files and soldier model. The starting army is listed in `ARMY`, front line first. All types share the global speed constants.
+A unit type (`UnitTypeId`) has its stats in `UNIT_TYPES`: name, full-strength size, starting files, march speed and soldier model. The starting army is listed in `ARMY`, front line first. A selection of mixed types moves each unit at its own speed, as in Total War without group lock.
 
 - **Trooper**: ranged line infantry with a carbine.
-- **Vanguard**: heavily armoured melee infantry with a lightning sword and a blue holo shield. Fewer soldiers per unit than troopers, deployed in the front line ahead of them. Combat does not exist yet, so for now the role only shows in the model and deployment.
+- **Vanguard**: heavily armoured melee infantry with a lightning sword and a blue holo shield. Slower than troopers because of the armour, with fewer soldiers per unit, deployed in the front line ahead of them. Combat does not exist yet, so for now the role only shows in the model and deployment.

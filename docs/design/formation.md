@@ -1,7 +1,7 @@
 # Formation movement
 
-- A unit marches as a block at `UNIT_SPEED`. It only advances while every soldier is within `UNIT_REFORM_DISTANCE` of its slot, so the formation waits for stragglers instead of stretching out.
-- Soldiers run to their slot at `SOLDIER_SPEED`, which is faster than `UNIT_SPEED` so they can catch up. They turn at `SOLDIER_TURN_SPEED`: toward the march direction while moving, toward the unit's facing once it stops.
+- A unit marches as a block at its type's `speed` in `UNIT_TYPES`. It only advances while every soldier is within `UNIT_REFORM_DISTANCE` of its slot, so the formation waits for stragglers instead of stretching out.
+- Soldiers run to their slot at their unit's speed times `SOLDIER_CATCH_UP`, so they can catch up and heavy soldiers also run slower. They turn at `SOLDIER_TURN_SPEED`: toward the march direction while moving, toward the unit's facing once it stops.
 - Idle soldiers pushed more than `UNIT_DRIFT_DISTANCE` off their slot walk back.
 - On a new order, the front ranks go to the soldiers already furthest forward along the new facing, left to right, so paths cross as little as possible. Soldiers keep that slot until the next order.
 

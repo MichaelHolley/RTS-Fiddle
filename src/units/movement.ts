@@ -1,6 +1,7 @@
 import { Transform } from '@dylanebert/shallot'
 import type { Resource, System, Vector4Field, World } from '@dylanebert/shallot'
-import { SOLDIER_SPEED, SOLDIER_TURN_SPEED, UNIT_DRIFT_DISTANCE, UNIT_REFORM_DISTANCE, UNIT_SPEED } from '../config'
+import { SOLDIER_CATCH_UP, SOLDIER_TURN_SPEED, UNIT_DRIFT_DISTANCE, UNIT_REFORM_DISTANCE, UNIT_TYPES } from '../config'
+import type { UnitTypeId } from '../config'
 import { MoveTarget, Soldier, Unit } from './components'
 import { slotToWorld } from './formation'
 import type { Point, SlotOffset } from './formation'
@@ -41,6 +42,10 @@ function turnToward(rotation: Vector4Field, eid: number, target: number, maxTurn
   }
   setHeading(rotation, eid, current + Math.sign(delta) * maxTurn)
   return false
+}
+
+function unitSpeed(world: World, unit: number): number {
+  return UNIT_TYPES[world.storage(Unit).type.get(unit) as UnitTypeId].speed
 }
 
 function isIdle(world: World, unit: number): boolean {
@@ -93,7 +98,7 @@ function updateUnits(world: World): void {
     const remaining = Math.hypot(dx, dz)
     if (remaining === 0) continue
     if ((lags.get(unit) ?? 0) <= UNIT_REFORM_DISTANCE) {
-      const step = UNIT_SPEED * world.time.deltaTime
+      const step = unitSpeed(world, unit) * world.time.deltaTime
       if (remaining <= step) {
         center.x.set(unit, destination.x.get(unit))
         center.z.set(unit, destination.z.get(unit))
@@ -120,7 +125,6 @@ function updateUnits(world: World): void {
 }
 
 function moveSoldiers(world: World): void {
-  const step = SOLDIER_SPEED * world.time.deltaTime
   const maxTurn = SOLDIER_TURN_SPEED * world.time.deltaTime
   const { translation, rotation } = world.storage(Transform)
   const targets = world.storage(MoveTarget)
@@ -130,6 +134,7 @@ function moveSoldiers(world: World): void {
     const dx = targets.x.get(eid) - translation.x.get(eid)
     const dz = targets.z.get(eid) - translation.z.get(eid)
     const distance = Math.hypot(dx, dz)
+    const step = unitSpeed(world, soldiers.unit.get(eid)) * SOLDIER_CATCH_UP * world.time.deltaTime
     if (distance <= ARRIVE_DISTANCE || distance <= step) {
       if (dx !== 0) translation.x.set(eid, targets.x.get(eid))
       if (dz !== 0) translation.z.set(eid, targets.z.get(eid))

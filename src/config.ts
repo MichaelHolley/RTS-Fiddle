@@ -3,6 +3,8 @@ export interface UnitType {
   /** Soldiers in a full-strength unit. */
   size: number
   startFiles: number
+  /** Metres per second the unit marches as a block. */
+  speed: number
   /** GLB of the soldier's baked frames, see `docs/pipeline/soldier-model.md`. */
   model: string
 }
@@ -11,8 +13,8 @@ export const UnitTypeId = { Trooper: 0, Vanguard: 1 } as const
 export type UnitTypeId = (typeof UnitTypeId)[keyof typeof UnitTypeId]
 
 export const UNIT_TYPES: Record<UnitTypeId, UnitType> = {
-  [UnitTypeId.Trooper]: { name: 'Trooper', size: 50, startFiles: 10, model: '/models/trooper.glb' },
-  [UnitTypeId.Vanguard]: { name: 'Vanguard', size: 40, startFiles: 10, model: '/models/vanguard.glb' },
+  [UnitTypeId.Trooper]: { name: 'Trooper', size: 50, startFiles: 10, speed: 5, model: '/models/trooper.glb' },
+  [UnitTypeId.Vanguard]: { name: 'Vanguard', size: 40, startFiles: 10, speed: 4, model: '/models/vanguard.glb' },
 }
 
 /** Units deployed at start, in deployment order: the front line first. */
@@ -24,10 +26,10 @@ export const SOLDIER_COUNT = ARMY.reduce((sum: number, type) => sum + UNIT_TYPES
 export const UNIT_MIN_FILES = 4
 export const UNIT_SPLIT_MIN_SOLDIERS = 9
 export const UNIT_GAP = 3
-export const UNIT_SPEED = 5
 export const UNIT_REFORM_DISTANCE = 2
 export const UNIT_DRIFT_DISTANCE = 0.75
-export const SOLDIER_SPEED = 6
+/** Soldier run speed as a multiple of its unit's `speed`; above 1 so soldiers can catch up with their slots. */
+export const SOLDIER_CATCH_UP = 1.2
 /** Radians per second a soldier can turn. */
 export const SOLDIER_TURN_SPEED = Math.PI * 3
 export const SOLDIER_RADIUS = 0.5
