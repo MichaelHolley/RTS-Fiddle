@@ -39,10 +39,52 @@ export const RUN_CYCLE_LENGTH = 3
 export const RUN_CYCLE_JITTER = 0.15
 export const RUN_MIN_SPEED = 1
 export const FORMATION_SPACING = 1.5
-export const MAP_SIZE = 200
+export const MAP_SIZE = 800
+/** Procedural elevation; the map seed comes from `?seed=` in the URL, or is random. */
+export const TERRAIN = {
+  /** Metres between heightmap samples. */
+  cellSize: 2,
+  /** Metres from a typical valley floor to a typical hilltop. */
+  relief: 40,
+  /** Metres across the largest hills. */
+  wavelength: 320,
+  octaves: 5,
+  /** Pixels per side of the ground color texture. */
+  textureSize: 512,
+}
+/** Forests grow where a noise field of this wavelength rises above `threshold` (-1 to 1). */
+export const FOREST = { wavelength: 220, threshold: 0.2 }
+/** Minimum clear gap between obstacles, wider than a soldier so no two obstacles form a dead end. */
+export const OBSTACLE_GAP = SOLDIER_RADIUS * 2 + 0.4
+/** No obstacles within this many metres of the map center, where the army deploys. */
+export const DEPLOY_CLEAR_RADIUS = 60
+
+export const PropShape = { Rock: 0, Pine: 1 } as const
+export type PropShape = (typeof PropShape)[keyof typeof PropShape]
+
+export interface PropType {
+  name: string
+  shape: PropShape
+  /** Collision radius range in metres; the mesh scales with it. */
+  radius: readonly [number, number]
+  /** Metres between scatter candidates. */
+  spacing: number
+  /** Chance a candidate spawns in open ground. */
+  density: number
+  /** Chance a candidate spawns inside a forest. */
+  forestDensity: number
+}
+
+/** Scattered obstacles, placed in table order: earlier entries claim space first. */
+export const PROP_TYPES: readonly PropType[] = [
+  { name: 'Boulder', shape: PropShape.Rock, radius: [1.8, 3.5], spacing: 30, density: 0.3, forestDensity: 0.15 },
+  { name: 'Rock', shape: PropShape.Rock, radius: [0.5, 1.2], spacing: 12, density: 0.12, forestDensity: 0.2 },
+  { name: 'Pine', shape: PropShape.Pine, radius: [0.25, 0.4], spacing: 4.5, density: 0.01, forestDensity: 0.6 },
+]
+
 export const CAMERA = {
   minDistance: 10,
-  maxDistance: 120,
+  maxDistance: 250,
   pitch: Math.PI / 2 - 0.9,
   yaw: Math.PI / 4,
   panSpeed: 1.2,

@@ -1,12 +1,23 @@
 import { Transform } from '@dylanebert/shallot'
 import type { Resource, System, Vector4Field, World } from '@dylanebert/shallot'
-import { SOLDIER_CATCH_UP, SOLDIER_TURN_SPEED, UNIT_DRIFT_DISTANCE, UNIT_REFORM_DISTANCE, UNIT_TYPES } from '../config'
+import {
+  SOLDIER_CATCH_UP,
+  SOLDIER_RADIUS,
+  SOLDIER_TURN_SPEED,
+  UNIT_DRIFT_DISTANCE,
+  UNIT_REFORM_DISTANCE,
+  UNIT_TYPES,
+} from '../config'
 import type { UnitTypeId } from '../config'
+import { findObstacles, Obstacles, pushOutOfObstacles } from '../terrain/obstacles'
+import type { ObstacleField } from '../terrain/obstacles'
 import { MoveTarget, Soldier, Unit } from './components'
 import { slotToWorld } from './formation'
 import type { Point, SlotOffset } from './formation'
 
 const ARRIVE_DISTANCE = 0.1
+/** Metres ahead a soldier starts walking around an obstacle. */
+const STEER_LOOKAHEAD = 2
 
 const UNITS = [Unit]
 const SOLDIERS = [Soldier]
@@ -61,7 +72,10 @@ function soldierSlot(world: World, soldier: number, unit: number): Point {
   center.z = units.center.z.get(unit)
   offset.x = soldiers.slotX.get(soldier)
   offset.z = soldiers.slotZ.get(soldier)
-  return slotToWorld(center, units.facing.get(unit), offset, slot)
+  slotToWorld(center, units.facing.get(unit), offset, slot)
+  // A slot inside an obstacle moves to its edge, so the soldier can reach it and the unit doesn't wait forever.
+  pushOutOfObstacles(world.resource(Obstacles), slot, SOLDIER_RADIUS)
+  return slot
 }
 
 function setMoveTarget(world: World, eid: number, slot: Point, heading: number): void {
@@ -124,7 +138,29 @@ function updateUnits(world: World): void {
   }
 }
 
+/** Heading toward `(dx, dz)`, bent past the nearest obstacle in the way so the soldier walks around it, not into it. */
+function steer(obstacles: ObstacleField, x: number, z: number, dx: number, dz: number, distance: number): number {
+  const count = findObstacles(obstacles, x, z, SOLDIER_RADIUS + STEER_LOOKAHEAD)
+  let heading = Math.atan2(dx, dz)
+  let nearest = Infinity
+  for (let i = 0; i < count; i++) {
+    const obstacle = obstacles.found[i]
+    const ox = obstacle.x - x
+    const oz = obstacle.z - z
+    const range = Math.hypot(ox, oz)
+    const clearance = obstacle.radius + SOLDIER_RADIUS
+    const side = (dx * oz - dz * ox) / distance
+    const behind = ox * dx + oz * dz <= 0
+    if (behind || range - clearance > distance || Math.abs(side) >= clearance || range >= nearest) continue
+    nearest = range
+    const offset = Math.asin(Math.min(clearance / range, 1))
+    heading = Math.atan2(ox, oz) + (side > 0 ? offset : -offset)
+  }
+  return heading
+}
+
 function moveSoldiers(world: World): void {
+  const obstacles = world.resource(Obstacles)
   const maxTurn = SOLDIER_TURN_SPEED * world.time.deltaTime
   const { translation, rotation } = world.storage(Transform)
   const targets = world.storage(MoveTarget)
@@ -142,9 +178,12 @@ function moveSoldiers(world: World): void {
       if (facing && isIdle(world, soldiers.unit.get(eid))) world.remove(eid, MoveTarget)
       continue
     }
-    turnToward(rotation, eid, Math.atan2(dx, dz), maxTurn)
-    translation.x.set(eid, translation.x.get(eid) + (dx / distance) * step)
-    translation.z.set(eid, translation.z.get(eid) + (dz / distance) * step)
+    const x = translation.x.get(eid)
+    const z = translation.z.get(eid)
+    const heading = steer(obstacles, x, z, dx, dz, distance)
+    turnToward(rotation, eid, heading, maxTurn)
+    translation.x.set(eid, x + Math.sin(heading) * step)
+    translation.z.set(eid, z + Math.cos(heading) * step)
   }
 }
 

@@ -1,19 +1,7 @@
-import {
-  Camera,
-  DirectionalLight,
-  GlobalAmbientLight,
-  lookAtRotation,
-  Materials,
-  MeshInstance,
-  MeshMaterial,
-  StandardMaterial,
-  StandardRenderer,
-  Transform,
-} from '@dylanebert/shallot'
+import { Camera, DirectionalLight, GlobalAmbientLight, lookAtRotation, StandardRenderer, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, World } from '@dylanebert/shallot'
 import { Orbit, OrbitMode, OrbitPlugin } from '@dylanebert/shallot/extras'
-import { CAMERA, MAP_SIZE } from '../config'
-import { linear } from './color'
+import { CAMERA } from '../config'
 
 export const RtsView: Resource<{ camera: number }> = { create: () => ({ camera: 0 }) }
 
@@ -22,25 +10,6 @@ function createLights(world: World): void {
   const sun = world.create()
   world.add(sun, Transform, { rotation: lookAtRotation(0, 0, 0, -1, -2, -1) })
   world.add(sun, DirectionalLight, { color: 0xffe8cc, illuminance: 6000 })
-}
-
-function createGround(world: World): void {
-  const ground = world.create()
-  world.add(ground, Transform, {
-    translation: [0, -0.1, 0],
-    scale: [MAP_SIZE, 0.2, MAP_SIZE],
-  })
-  world.add(ground, MeshInstance)
-  world.add(
-    ground,
-    MeshMaterial,
-    world.resource(Materials).add(
-      StandardMaterial({
-        baseColor: [linear(0.28), linear(0.4), linear(0.26), 1],
-        perceptualRoughness: 0.9,
-      }),
-    ),
-  )
 }
 
 function createCamera(world: World): void {
@@ -64,7 +33,6 @@ export const WorldPlugin: Plugin = {
   dependencies: [OrbitPlugin],
   initialize(world) {
     createLights(world)
-    createGround(world)
     createCamera(world)
   },
 }

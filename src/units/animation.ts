@@ -3,7 +3,7 @@ import type { System, World } from '@dylanebert/shallot'
 import { RUN_MIN_SPEED } from '../config'
 import { Soldier, SoldierAnimation, Unit } from './components'
 import { cameraPosition, SoldierModels, usesLod } from './model'
-import { SeparationSystem } from './separation'
+import { TerrainContactSystem } from './terrainContact'
 
 const ANIMATED = [Soldier, SoldierAnimation]
 
@@ -21,11 +21,12 @@ function animateSoldiers(world: World): void {
   for (const eid of world.query(ANIMATED)) {
     const x = translation.x.get(eid)
     const z = translation.z.get(eid)
+    const y = translation.y.get(eid)
     const step = Math.hypot(x - animation.lastX.get(eid), z - animation.lastZ.get(eid))
     animation.lastX.set(eid, x)
     animation.lastZ.set(eid, z)
     const model = models[unitType.get(soldiers.unit.get(eid))]
-    const { idle, run } = usesLod(camera, x, z) ? model.lod : model.detail
+    const { idle, run } = usesLod(camera, x, y, z) ? model.lod : model.detail
     let frame = -1
     if (step > minStep) {
       const phase = (animation.phase.get(eid) + step / animation.cycleLength.get(eid)) % 1
@@ -41,6 +42,6 @@ function animateSoldiers(world: World): void {
 export const AnimationSystem: System = {
   name: 'soldierAnimation',
   group: 'fixed',
-  after: [SeparationSystem],
+  after: [TerrainContactSystem],
   update: animateSoldiers,
 }

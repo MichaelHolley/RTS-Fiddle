@@ -4,10 +4,13 @@ import { Orbit, OrbitPlugin } from '@dylanebert/shallot/extras'
 import { CAMERA, KEYS, MAP_SIZE } from '../config'
 import { anyKey } from '../input/keys'
 import { RtsView, WorldPlugin } from '../scene/world'
+import { Terrain, terrainHeight } from '../terrain/heightmap'
 
 const HALF_MAP = MAP_SIZE / 2
 const ZOOM_STEP = 0.1
 const DRAG_ROTATE_SPEED = 0.005
+/** Per second, how quickly the orbit target eases to the ground height under it. */
+const HEIGHT_FOLLOW_RATE = 4
 
 const NO_KEYS: ReadonlySet<string> = new Set()
 
@@ -72,8 +75,13 @@ function updateCamera(world: World): void {
     panZ += moveZ * scale
   }
 
+  panX = clamp(panX, -HALF_MAP, HALF_MAP)
+  panZ = clamp(panZ, -HALF_MAP, HALF_MAP)
+  const ground = terrainHeight(world.resource(Terrain), panX, panZ)
+  const panY = orbit.pan.y.get(eid) + (ground - orbit.pan.y.get(eid)) * Math.min(HEIGHT_FOLLOW_RATE * dt, 1)
+
   orbit.yaw.set(eid, yaw)
-  orbit.pan.set(eid, clamp(panX, -HALF_MAP, HALF_MAP), 0, clamp(panZ, -HALF_MAP, HALF_MAP))
+  orbit.pan.set(eid, panX, panY, panZ)
 }
 
 const RtsCameraSystem: System = {

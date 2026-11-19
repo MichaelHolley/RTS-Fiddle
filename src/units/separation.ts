@@ -1,6 +1,6 @@
 import { Transform } from '@dylanebert/shallot'
 import type { Resource, System, World } from '@dylanebert/shallot'
-import { FORMATION_SPACING, MAP_SIZE, SOLDIER_COUNT, SOLDIER_RADIUS } from '../config'
+import { FORMATION_SPACING, SOLDIER_COUNT, SOLDIER_RADIUS } from '../config'
 import { Soldier } from './components'
 import { MoveSystem, UnitScratch } from './movement'
 
@@ -8,14 +8,17 @@ const MIN_SEPARATION = SOLDIER_RADIUS * 2
 // Half the formation spacing lets a soldier fit exactly between two neighbours of another unit.
 const PASS_SEPARATION = FORMATION_SPACING / 2
 // Cells must be at least as wide as the largest separation distance so the 3×3 neighbouring cells hold every overlap.
-const GRID_COLUMNS = Math.ceil(MAP_SIZE / MIN_SEPARATION)
-const GRID_HALF_SIZE = MAP_SIZE / 2
+const CELL_SIZE = MIN_SEPARATION
+// Cells hash into a table sized by soldier count rather than map area, so a bigger map costs nothing per tick.
+const BUCKETS = 2 ** Math.ceil(Math.log2(SOLDIER_COUNT * 2))
 
 const SOLDIERS = [Soldier]
 
 interface Grid {
-  cellHead: Int32Array
-  nextInCell: Int32Array
+  bucketHead: Int32Array
+  nextInBucket: Int32Array
+  columns: Int32Array
+  rows: Int32Array
   eids: Uint32Array
   units: Uint32Array
   /** March heading of the soldier's unit, NaN while the unit is idle. */
@@ -26,8 +29,10 @@ interface Grid {
 
 const SeparationGrid: Resource<Grid> = {
   create: () => ({
-    cellHead: new Int32Array(GRID_COLUMNS * GRID_COLUMNS),
-    nextInCell: new Int32Array(SOLDIER_COUNT),
+    bucketHead: new Int32Array(BUCKETS),
+    nextInBucket: new Int32Array(SOLDIER_COUNT),
+    columns: new Int32Array(SOLDIER_COUNT),
+    rows: new Int32Array(SOLDIER_COUNT),
     eids: new Uint32Array(SOLDIER_COUNT),
     units: new Uint32Array(SOLDIER_COUNT),
     headings: new Float32Array(SOLDIER_COUNT),
@@ -36,9 +41,8 @@ const SeparationGrid: Resource<Grid> = {
   }),
 }
 
-function cellIndex(coordinate: number): number {
-  const cell = Math.floor((coordinate + GRID_HALF_SIZE) / MIN_SEPARATION)
-  return Math.min(Math.max(cell, 0), GRID_COLUMNS - 1)
+function bucket(column: number, row: number): number {
+  return (Math.imul(column, 73856093) ^ Math.imul(row, 19349663)) & (BUCKETS - 1)
 }
 
 /** Picks who keeps their path when soldiers of different units overlap, or -1 if neither unit is marching. */
@@ -88,7 +92,7 @@ function separatePair(grid: Grid, i: number, j: number): void {
 
 function separateSoldiers(world: World): void {
   const grid = world.resource(SeparationGrid)
-  const { cellHead, nextInCell, eids, units, headings, xs, zs } = grid
+  const { bucketHead, nextInBucket, columns, rows, eids, units, headings, xs, zs } = grid
   const { marching } = world.resource(UnitScratch)
   const soldiers = world.storage(Soldier)
   const { translation } = world.storage(Transform)
@@ -104,20 +108,21 @@ function separateSoldiers(world: World): void {
     count++
   }
 
-  cellHead.fill(-1)
+  bucketHead.fill(-1)
   for (let i = 0; i < count; i++) {
-    const cell = cellIndex(zs[i]) * GRID_COLUMNS + cellIndex(xs[i])
-    nextInCell[i] = cellHead[cell]
-    cellHead[cell] = i
+    columns[i] = Math.floor(xs[i] / CELL_SIZE)
+    rows[i] = Math.floor(zs[i] / CELL_SIZE)
+    const b = bucket(columns[i], rows[i])
+    nextInBucket[i] = bucketHead[b]
+    bucketHead[b] = i
   }
 
   for (let i = 0; i < count; i++) {
-    const column = cellIndex(xs[i])
-    const row = cellIndex(zs[i])
-    for (let r = Math.max(row - 1, 0); r <= Math.min(row + 1, GRID_COLUMNS - 1); r++) {
-      for (let c = Math.max(column - 1, 0); c <= Math.min(column + 1, GRID_COLUMNS - 1); c++) {
-        for (let j = cellHead[r * GRID_COLUMNS + c]; j !== -1; j = nextInCell[j]) {
-          if (j > i) separatePair(grid, i, j)
+    for (let r = rows[i] - 1; r <= rows[i] + 1; r++) {
+      for (let c = columns[i] - 1; c <= columns[i] + 1; c++) {
+        for (let j = bucketHead[bucket(c, r)]; j !== -1; j = nextInBucket[j]) {
+          // Several cells can share a bucket; checking the cell visits each pair once.
+          if (j > i && columns[j] === c && rows[j] === r) separatePair(grid, i, j)
         }
       }
     }

@@ -32,7 +32,7 @@ function updateLodDebug(world: World): void {
   const camera = cameraPosition(world)
   state.count = 0
   for (const eid of world.query(SOLDIERS)) {
-    const far = usesLod(camera, translation.x.get(eid), translation.z.get(eid))
+    const far = usesLod(camera, translation.x.get(eid), translation.y.get(eid), translation.z.get(eid))
     if (far) state.count++
     const type = unitType.get(soldiers.unit.get(eid))
     const wanted = (state.highlight && far ? tints[type] : models[type].material).material

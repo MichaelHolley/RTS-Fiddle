@@ -60,8 +60,8 @@ export function cameraPosition(world: World): Point3 {
   return { x: translation.x.get(camera), y: translation.y.get(camera), z: translation.z.get(camera) }
 }
 
-export function usesLod(camera: Point3, x: number, z: number): boolean {
-  return (x - camera.x) ** 2 + camera.y ** 2 + (z - camera.z) ** 2 > LOD_DISTANCE_SQ
+export function usesLod(camera: Point3, x: number, y: number, z: number): boolean {
+  return (x - camera.x) ** 2 + (y - camera.y) ** 2 + (z - camera.z) ** 2 > LOD_DISTANCE_SQ
 }
 
 async function loadSoldierModel(world: World, type: UnitType): Promise<SoldierModel> {

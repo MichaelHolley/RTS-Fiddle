@@ -3,6 +3,7 @@ import type { Plugin, World } from '@dylanebert/shallot'
 import { ARMY, CAMERA, FORMATION_SPACING, RUN_CYCLE_JITTER, RUN_CYCLE_LENGTH, UNIT_GAP, UNIT_TYPES } from '../config'
 import type { UnitTypeId } from '../config'
 import { WorldPlugin } from '../scene/world'
+import { Terrain, terrainHeight } from '../terrain/heightmap'
 import { AnimationSystem } from './animation'
 import { MoveTarget, Selected, Soldier, SoldierAnimation, SoldierGlow, Unit } from './components'
 import { gridLayout, slotToWorld } from './formation'
@@ -12,6 +13,7 @@ import { LodDebugSystem } from './lodDebug'
 import { loadSoldierModels, SoldierModels } from './model'
 import { MoveSystem, setHeading, UnitSystem } from './movement'
 import { SeparationSystem } from './separation'
+import { TerrainContactSystem } from './terrainContact'
 
 const DEPLOY_LINES = 2
 
@@ -20,7 +22,7 @@ function spawnSoldier(world: World, unit: number, type: UnitTypeId, position: Po
   const model = world.resource(SoldierModels)[type]
   const soldier = world.create()
   world.add(soldier, Soldier, { unit, slotX: slot.x, slotZ: slot.z })
-  world.add(soldier, Transform, { translation: [x, 0, z] })
+  world.add(soldier, Transform, { translation: [x, terrainHeight(world.resource(Terrain), x, z), z] })
   setHeading(world.storage(Transform).rotation, soldier, facing)
   const cycleLength = RUN_CYCLE_LENGTH * (1 + (Math.random() * 2 - 1) * RUN_CYCLE_JITTER)
   world.add(soldier, SoldierAnimation, { phase: Math.random(), cycleLength, lastX: x, lastZ: z, frame: -1 })
@@ -62,7 +64,7 @@ export const UnitsPlugin: Plugin = {
   dependencies: [WorldPlugin],
   recovery: 'stateless',
   components: [Unit, Selected, Soldier, MoveTarget, SoldierAnimation, SoldierGlow],
-  systems: [UnitSystem, MoveSystem, SeparationSystem, AnimationSystem, GlowSystem, LodDebugSystem],
+  systems: [UnitSystem, MoveSystem, SeparationSystem, TerrainContactSystem, AnimationSystem, GlowSystem, LodDebugSystem],
   async initialize(world) {
     await loadSoldierModels(world)
     spawnArmy(world)
