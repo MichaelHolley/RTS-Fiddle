@@ -18,6 +18,7 @@ Every key's browser default is cancelled except reload (F5, Ctrl+R), fullscreen 
 - Both factions are selectable and can be selected together in the demo.
 - Shift adds to the selection. Ctrl+A selects all.
 - Selected units show a ring under each soldier and their destination footprint until they arrive.
+- Selected ranged units show a faint circle on the ground at their `range` around the unit's center. It is a full circle because units fire in every direction; Total War draws a forward arc. Deviation, see [total-war.md](total-war.md).
 
 ## Control groups
 

@@ -1,5 +1,7 @@
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
 import { drawLine, LinesPlugin } from '@dylanebert/shallot/extras'
+import { UNIT_TYPES } from '../config'
+import type { UnitTypeId } from '../config'
 import { Commands, CommandPlugin } from '../input/commands'
 import { Terrain, terrainHeight } from '../terrain/heightmap'
 import type { Heightmap } from '../terrain/heightmap'
@@ -21,6 +23,9 @@ const RING_SEGMENTS = 32
 const RING_START_RADIUS = 0.5
 const RING_END_RADIUS = 1.5
 const LINE = { width: LINE_WIDTH }
+/** How far the range circle's color fades from `MARKER_COLOR` toward the ground, so it reads as a hint, not an order. */
+const RANGE_FADE = 0.6
+const RANGE_LINE = { width: 1 }
 
 interface Ring {
   point: Point
@@ -35,6 +40,7 @@ const cornerOffset: SlotOffset = { x: 0, z: 0 }
 const corners: Point[] = Array.from({ length: 4 }, () => ({ x: 0, z: 0 }))
 const arrow: Point[] = Array.from({ length: 3 }, () => ({ x: 0, z: 0 }))
 const destination: Point = { x: 0, z: 0 }
+const rangeCenter: Point = { x: 0, z: 0 }
 const segmentStart: [number, number, number] = [0, 0, 0]
 const segmentEnd: [number, number, number] = [0, 0, 0]
 
@@ -110,20 +116,44 @@ function fadedColor(t: number): number {
   return (r << 16) | (g << 8) | b
 }
 
-function drawRing(world: World, ring: Ring): void {
-  const t = ring.elapsed / RING_SECONDS
-  const radius = RING_START_RADIUS + (RING_END_RADIUS - RING_START_RADIUS) * t
-  const color = fadedColor(t)
+function drawGroundCircle(
+  world: World,
+  center: Point,
+  radius: number,
+  segments: number,
+  color: number,
+  line: { width: number },
+): void {
   const map = world.resource(Terrain)
-  const { x, z } = ring.point
+  const { x, z } = center
   groundPoint(map, x + radius, z, segmentEnd)
-  for (let i = 1; i <= RING_SEGMENTS; i++) {
+  for (let i = 1; i <= segments; i++) {
     segmentStart[0] = segmentEnd[0]
     segmentStart[1] = segmentEnd[1]
     segmentStart[2] = segmentEnd[2]
-    const angle = (i / RING_SEGMENTS) * Math.PI * 2
+    const angle = (i / segments) * Math.PI * 2
     groundPoint(map, x + Math.cos(angle) * radius, z + Math.sin(angle) * radius, segmentEnd)
-    drawLine(world, segmentStart, segmentEnd, color, LINE)
+    drawLine(world, segmentStart, segmentEnd, color, line)
+  }
+}
+
+function drawRing(world: World, ring: Ring): void {
+  const t = ring.elapsed / RING_SECONDS
+  const radius = RING_START_RADIUS + (RING_END_RADIUS - RING_START_RADIUS) * t
+  drawGroundCircle(world, ring.point, radius, RING_SEGMENTS, fadedColor(t), LINE)
+}
+
+// Units fire all around, not in a forward arc, so the range is a full circle around the unit's center.
+function drawRanges(world: World): void {
+  const units = world.storage(Unit)
+  const color = fadedColor(RANGE_FADE)
+  for (const unit of world.query(SELECTED_UNITS)) {
+    const ranged = UNIT_TYPES[units.type.get(unit) as UnitTypeId].ranged
+    if (!ranged) continue
+    rangeCenter.x = units.center.x.get(unit)
+    rangeCenter.z = units.center.z.get(unit)
+    const segments = Math.ceil((Math.PI * 2 * ranged.range) / SEGMENT_LENGTH)
+    drawGroundCircle(world, rangeCenter, ranged.range, segments, color, RANGE_LINE)
   }
 }
 
@@ -149,6 +179,7 @@ const MarkersSystem: System = {
   group: 'simulation',
   update(world) {
     drawDestinations(world)
+    drawRanges(world)
     drawPreview(world)
     drawMoveRing(world)
   },

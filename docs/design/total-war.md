@@ -12,3 +12,4 @@ Controls, terms and mechanics copy Total War (Warhammer / Three Kingdoms era). N
 - **Player controls both sides** ([combat](combat.md)): a demo convenience; Total War gives the enemy to the AI.
 - **No friendly fire or line of sight** ([combat](combat.md#ranged-fire)): bolts only damage their target and pass through hills, friends and obstacles.
 - **No morale** ([combat](combat.md#health-and-casualties)): Total War units waver and rout; here they fight to the last soldier.
+- **All-round fire** ([combat](combat.md#ranged-fire), [controls](controls.md#select)): Total War ranged units shoot within a forward arc and show it when selected; here soldiers turn to fire in any direction, so the range shows as a full circle.
