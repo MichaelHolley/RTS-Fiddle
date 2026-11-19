@@ -14,13 +14,14 @@ Every key's browser default is cancelled except reload (F5, Ctrl+R), fullscreen 
 
 - Left-click picks the unit of the nearest soldier on screen within `CLICK_SELECT_RADIUS_PX`. Clicking empty ground deselects.
 - Left-drag box-selects every unit with any soldier inside the box.
-- Double-clicking a unit (within `DOUBLE_CLICK_MS`) selects every unit of its type.
+- Double-clicking a unit (within `DOUBLE_CLICK_MS`) selects every unit of its type and faction.
+- Both factions are selectable and can be selected together in the demo.
 - Shift adds to the selection. Ctrl+A selects all.
 - Selected units show a ring under each soldier and their destination footprint until they arrive.
 
 ## Control groups
 
-Ctrl+digit stores the selection (an empty selection clears the group). The digit recalls it, Shift+digit adds it. The HUD shows each group's key and unit count.
+Ctrl+digit stores the selection (an empty selection clears the group). The digit recalls it, Shift+digit adds it. The HUD shows each group's key and unit count. Destroyed units drop out of their groups.
 
 ## Move
 
@@ -36,4 +37,4 @@ Each selected unit with at least `UNIT_SPLIT_MIN_SOLDIERS` soldiers splits into 
 
 ## Join
 
-Only units of the same type merge. For each type in the selection, the largest selected unit absorbs the others and reforms at their soldier-weighted center with their fronts combined. Absorbed units are destroyed and replaced in control groups by the absorbing unit. Ignored while Ctrl is held. Deviation from Total War, see [total-war.md](total-war.md).
+Only units of the same type and faction merge. For each type and faction in the selection, the largest selected unit absorbs the others and reforms at their soldier-weighted center with their fronts combined. Absorbed units are destroyed and replaced in control groups by the absorbing unit. Ignored while Ctrl is held. Deviation from Total War, see [total-war.md](total-war.md).

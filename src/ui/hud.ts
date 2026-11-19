@@ -1,4 +1,5 @@
 import type { World } from '@dylanebert/shallot'
+import { FACTIONS, FactionId } from '../config'
 import { blockBrowserShortcuts } from '../input/browserShortcuts'
 import { ControlGroups, selectedCount, SelectionDrag } from '../input/selection'
 import { Terrain } from '../terrain/heightmap'
@@ -41,6 +42,16 @@ function selectedSoldierCount(world: World): number {
   return count
 }
 
+function factionStrength(world: World): string {
+  const soldiers = world.storage(Soldier)
+  const { faction } = world.storage(Unit)
+  const counts = Object.values(FactionId).map(() => 0)
+  for (const eid of world.query(SOLDIERS)) counts[faction.get(soldiers.unit.get(eid))]++
+  return Object.values(FactionId)
+    .map((id) => `${FACTIONS[id].name}: ${counts[id]}`)
+    .join(' | ')
+}
+
 export function mountUi(container: HTMLElement, world: World): () => void {
   const hud = element(container, 'hud')
   const groupsElement = element(container, 'groups')
@@ -59,7 +70,7 @@ export function mountUi(container: HTMLElement, world: World): () => void {
     const selected = `${selectedCount(world)} (${selectedSoldierCount(world)} soldiers)`
     const lod = world.resource(SoldierLod)
     const lodLabel = `${lod.count}${lod.highlight ? ' (highlighted)' : ' (L to highlight)'}`
-    hud.textContent = `FPS: ${fps.toFixed(0)} | Units: ${unitCount(world)} | Selected: ${selected} | LOD: ${lodLabel} | Map seed: ${world.resource(Terrain).seed}`
+    hud.textContent = `FPS: ${fps.toFixed(0)} | ${factionStrength(world)} | Units: ${unitCount(world)} | Selected: ${selected} | LOD: ${lodLabel} | Map seed: ${world.resource(Terrain).seed}`
     const keys = [...groups.keys()].sort()
     groupsElement.replaceChildren(...keys.map((key) => groupIcon(key, groups.get(key)!.length)))
   }

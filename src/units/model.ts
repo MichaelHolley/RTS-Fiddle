@@ -1,7 +1,7 @@
 import { ImageFilterMode, Materials, Meshes, registerImage, StandardMaterial, Transform } from '@dylanebert/shallot'
 import type { MeshHandle, Resource, World } from '@dylanebert/shallot'
 import type { MaterialHandle } from '@dylanebert/shallot/standard/rendering'
-import { SOLDIER_LOD_DISTANCE, UNIT_TYPES, UnitTypeId } from '../config'
+import { FACTIONS, SOLDIER_LOD_DISTANCE, UNIT_TYPES, UnitTypeId } from '../config'
 import type { UnitType } from '../config'
 import { loadGlb } from '../scene/gltf'
 import { RtsView } from '../scene/world'
@@ -25,7 +25,8 @@ export interface SoldierModel {
   lod: SoldierFrames
   glow: GlowModel | undefined
   palette: number
-  material: MaterialHandle
+  /** Indexed by `FactionId`. */
+  materials: MaterialHandle[]
 }
 
 /** Indexed by `UnitTypeId`. */
@@ -85,7 +86,7 @@ async function loadSoldierModel(world: World, type: UnitType): Promise<SoldierMo
     lod: frames('lod_'),
     glow: meshes.has('fx_idle') ? { frames: frames('fx_'), material: glowMaterial(world, palette) } : undefined,
     palette,
-    material: soldierMaterial(world, palette),
+    materials: Object.values(FACTIONS).map((faction) => soldierMaterial(world, palette, faction.tint)),
   }
 }
 

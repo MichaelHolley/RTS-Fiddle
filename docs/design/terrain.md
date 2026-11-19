@@ -2,7 +2,7 @@
 
 ## Map
 
-- The battlefield is a square `MAP_SIZE` metres across with rolling hills from a seeded noise heightmap (`TERRAIN`). The army deploys at the center.
+- The battlefield is a square `MAP_SIZE` metres across with rolling hills from a seeded noise heightmap (`TERRAIN`). The two armies deploy on opposite sides of the center (see [combat](combat.md)).
 - Every load rolls a new map. The seed shows in the HUD; open the page with `?seed=<number>` to replay a map.
 - Ground color reads the shape of the land: lush grass in valleys, drier grass on high ground, bare dirt on steep slopes.
 - Soldiers stand on the ground and march over hills at their normal speed. Slopes have no gameplay effect yet.
@@ -13,7 +13,7 @@
 - Boulders, rocks and pines are scattered by the entries in `PROP_TYPES`. Pines grow mostly in forests, patches shaped by `FOREST`; rocks lie mostly in open ground.
 - Each obstacle is a solid circle the size of its trunk or rock: soldiers cannot pass through it.
 - Obstacles stay at least `OBSTACLE_GAP` apart, wider than a soldier, so there is always a way between them and no dead ends.
-- Nothing spawns within `DEPLOY_CLEAR_RADIUS` of the map center, so the army starts on open ground.
+- Nothing spawns within `DEPLOY_CLEAR_RADIUS` of either army's deployment center, so both start on open ground.
 
 ## Moving through obstacles
 

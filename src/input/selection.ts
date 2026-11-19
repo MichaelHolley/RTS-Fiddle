@@ -117,14 +117,16 @@ function selectClick(world: World, drag: DragState, additive: boolean): void {
   const double = nearest >= 0 && nearest === last.unit && now - last.at <= DOUBLE_CLICK_MS
   last.unit = double ? -1 : nearest
   last.at = now
-  if (double) setSelection(world, unitsOfType(world, world.storage(Unit).type.get(nearest)), additive)
+  if (double) setSelection(world, unitsLike(world, nearest), additive)
   else if (nearest >= 0) setSelection(world, [nearest], additive)
   else if (!additive) setSelection(world, [], false)
 }
 
-function unitsOfType(world: World, type: number): number[] {
-  const units = world.storage(Unit)
-  return Array.from(world.query(UNITS)).filter((unit) => units.type.get(unit) === type)
+function unitsLike(world: World, model: number): number[] {
+  const { type, faction } = world.storage(Unit)
+  return Array.from(world.query(UNITS)).filter(
+    (unit) => type.get(unit) === type.get(model) && faction.get(unit) === faction.get(model),
+  )
 }
 
 function moveDrag(drag: DragState, x: number, y: number): void {
@@ -164,11 +166,22 @@ function updateDrag(world: World): void {
   else endDrag(drag)
 }
 
+// Units are destroyed when their last soldier dies.
+function pruneGroups(world: World, groups: Map<string, number[]>): void {
+  for (const [key, units] of groups) {
+    if (units.every((unit) => world.has(unit, Unit))) continue
+    const alive = units.filter((unit) => world.has(unit, Unit))
+    if (alive.length > 0) groups.set(key, alive)
+    else groups.delete(key)
+  }
+}
+
 function updateGroups(world: World): void {
   const { keys } = world.resource(Devices)
   const groups = world.resource(ControlGroups)
   const assign = anyKey(keys.held, KEYS.ctrl)
   const additive = anyKey(keys.held, KEYS.shift)
+  pruneGroups(world, groups)
   if (assign && anyKey(keys.pressed, KEYS.selectAll)) setSelection(world, world.query(UNITS), false)
   for (const code of keys.pressed) {
     const key = DIGIT_CODE.exec(code)?.[1]

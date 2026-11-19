@@ -4,7 +4,9 @@ import { FORMATION_SPACING, SOLDIER_COUNT, SOLDIER_RADIUS } from '../config'
 import { isBlocked, Obstacles, pushOutOfObstacles } from '../terrain/obstacles'
 import type { ObstacleField } from '../terrain/obstacles'
 import type { Point } from './formation'
-import { Soldier } from './components'
+import { cellBucket, createCellGrid, fillCellGrid } from './cellGrid'
+import type { CellGrid } from './cellGrid'
+import { Soldier, Unit } from './components'
 import { MoveSystem, UnitScratch } from './movement'
 
 const MIN_SEPARATION = SOLDIER_RADIUS * 2
@@ -12,8 +14,6 @@ const MIN_SEPARATION = SOLDIER_RADIUS * 2
 const PASS_SEPARATION = FORMATION_SPACING / 2
 // Cells must be at least as wide as the largest separation distance so the 3×3 neighbouring cells hold every overlap.
 const CELL_SIZE = MIN_SEPARATION
-// Cells hash into a table sized by soldier count rather than map area, so a bigger map costs nothing per tick.
-const BUCKETS = 2 ** Math.ceil(Math.log2(SOLDIER_COUNT * 2))
 // Each pass undoes a little of the last one's work; repeating settles crowds pressed against obstacles instead of jittering.
 const SOLVER_PASSES = 3
 const position: Point = { x: 0, z: 0 }
@@ -21,12 +21,10 @@ const position: Point = { x: 0, z: 0 }
 const SOLDIERS = [Soldier]
 
 interface Grid {
-  bucketHead: Int32Array
-  nextInBucket: Int32Array
-  columns: Int32Array
-  rows: Int32Array
+  cells: CellGrid
   eids: Uint32Array
   units: Uint32Array
+  factions: Uint32Array
   /** March heading of the soldier's unit, NaN while the unit is idle. */
   headings: Float32Array
   xs: Float32Array
@@ -35,20 +33,14 @@ interface Grid {
 
 const SeparationGrid: Resource<Grid> = {
   create: () => ({
-    bucketHead: new Int32Array(BUCKETS),
-    nextInBucket: new Int32Array(SOLDIER_COUNT),
-    columns: new Int32Array(SOLDIER_COUNT),
-    rows: new Int32Array(SOLDIER_COUNT),
+    cells: createCellGrid(CELL_SIZE, SOLDIER_COUNT),
     eids: new Uint32Array(SOLDIER_COUNT),
     units: new Uint32Array(SOLDIER_COUNT),
+    factions: new Uint32Array(SOLDIER_COUNT),
     headings: new Float32Array(SOLDIER_COUNT),
     xs: new Float32Array(SOLDIER_COUNT),
     zs: new Float32Array(SOLDIER_COUNT),
   }),
-}
-
-function bucket(column: number, row: number): number {
-  return (Math.imul(column, 73856093) ^ Math.imul(row, 19349663)) & (BUCKETS - 1)
 }
 
 /** Picks who keeps their path when soldiers of different units overlap, or -1 if neither unit is marching. */
@@ -82,15 +74,16 @@ function stepAside({ headings, xs, zs }: Grid, obstacles: ObstacleField, leader:
   return true
 }
 
+// Friendly units pass through each other; soldiers of the same unit and enemies keep full body distance.
 function separatePair(grid: Grid, obstacles: ObstacleField, i: number, j: number): void {
-  const { units, xs, zs } = grid
+  const { units, factions, xs, zs } = grid
   const dx = xs[j] - xs[i]
   const dz = zs[j] - zs[i]
-  const sameUnit = units[i] === units[j]
-  const minDistance = sameUnit ? MIN_SEPARATION : PASS_SEPARATION
+  const passing = units[i] !== units[j] && factions[i] === factions[j]
+  const minDistance = passing ? PASS_SEPARATION : MIN_SEPARATION
   const distance = Math.hypot(dx, dz)
   if (distance >= minDistance) return
-  if (!sameUnit) {
+  if (passing) {
     const leader = rightOfWay(grid, i, j)
     if (leader !== -1 && stepAside(grid, obstacles, leader, leader === i ? j : i)) return
   }
@@ -106,9 +99,11 @@ function separatePair(grid: Grid, obstacles: ObstacleField, i: number, j: number
 function separateSoldiers(world: World): void {
   const grid = world.resource(SeparationGrid)
   const obstacles = world.resource(Obstacles)
-  const { bucketHead, nextInBucket, columns, rows, eids, units, headings, xs, zs } = grid
+  const { cells, eids, units, factions, headings, xs, zs } = grid
+  const { bucketHead, nextInBucket, columns, rows } = cells
   const { marching } = world.resource(UnitScratch)
   const soldiers = world.storage(Soldier)
+  const { faction } = world.storage(Unit)
   const { translation } = world.storage(Transform)
 
   let count = 0
@@ -116,6 +111,7 @@ function separateSoldiers(world: World): void {
     const unit = soldiers.unit.get(eid)
     eids[count] = eid
     units[count] = unit
+    factions[count] = faction.get(unit)
     headings[count] = marching.get(unit) ?? NaN
     xs[count] = translation.x.get(eid)
     zs[count] = translation.z.get(eid)
@@ -123,19 +119,12 @@ function separateSoldiers(world: World): void {
   }
 
   for (let pass = 0; pass < SOLVER_PASSES; pass++) {
-    bucketHead.fill(-1)
-    for (let i = 0; i < count; i++) {
-      columns[i] = Math.floor(xs[i] / CELL_SIZE)
-      rows[i] = Math.floor(zs[i] / CELL_SIZE)
-      const b = bucket(columns[i], rows[i])
-      nextInBucket[i] = bucketHead[b]
-      bucketHead[b] = i
-    }
+    fillCellGrid(cells, xs, zs, count)
 
     for (let i = 0; i < count; i++) {
       for (let r = rows[i] - 1; r <= rows[i] + 1; r++) {
         for (let c = columns[i] - 1; c <= columns[i] + 1; c++) {
-          for (let j = bucketHead[bucket(c, r)]; j !== -1; j = nextInBucket[j]) {
+          for (let j = bucketHead[cellBucket(cells, c, r)]; j !== -1; j = nextInBucket[j]) {
             // Several cells can share a bucket; checking the cell visits each pair once.
             if (j > i && columns[j] === c && rows[j] === r) separatePair(grid, obstacles, i, j)
           }

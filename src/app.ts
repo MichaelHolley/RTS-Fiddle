@@ -1,6 +1,7 @@
 import type { Plugin } from '@dylanebert/shallot'
 import { DiagnosticsOverlayPlugin } from '@dylanebert/shallot/extras'
 import { RtsCameraPlugin } from './camera/rtsCamera'
+import { CombatPlugin } from './combat/combat'
 import { CommandPlugin } from './input/commands'
 import { SelectionPlugin } from './input/selection'
 import { WorldPlugin } from './scene/world'
@@ -15,6 +16,7 @@ export const RtsPlugin: Plugin = {
     TerrainPlugin,
     RtsCameraPlugin,
     UnitsPlugin,
+    CombatPlugin,
     SelectionPlugin,
     CommandPlugin,
     MarkersPlugin,

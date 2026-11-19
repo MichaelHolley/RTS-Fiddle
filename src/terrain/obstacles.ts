@@ -1,5 +1,6 @@
 import type { Resource } from '@dylanebert/shallot'
-import { DEPLOY_CLEAR_RADIUS, FOREST, MAP_SIZE, OBSTACLE_GAP, PROP_TYPES } from '../config'
+import { DEPLOY_CLEAR_RADIUS, FactionId, FOREST, MAP_SIZE, OBSTACLE_GAP, PROP_TYPES } from '../config'
+import { deployment } from '../units/deployment'
 import type { Point } from '../units/formation'
 import { Terrain } from './heightmap'
 import { fbm, random } from './noise'
@@ -9,6 +10,7 @@ const CELL_SIZE = 8
 const COLUMNS = Math.ceil(MAP_SIZE / CELL_SIZE)
 const MAX_RADIUS = Math.max(...PROP_TYPES.map((type) => type.radius[1]))
 const FOREST_OCTAVES = 3
+const DEPLOY_ORIGINS = Object.values(FactionId).map((faction) => deployment(faction).origin)
 
 /** A circular obstacle soldiers cannot enter. `type` indexes `PROP_TYPES`. */
 export interface Obstacle extends Point {
@@ -88,7 +90,7 @@ function scatter(seed: number): ObstacleField {
         const yaw = rand() * Math.PI * 2
         const forest = fbm(x / FOREST.wavelength, z / FOREST.wavelength, forestSeed, FOREST_OCTAVES) > FOREST.threshold
         if (rand() >= (forest ? type.forestDensity : type.density)) continue
-        if (Math.hypot(x, z) < DEPLOY_CLEAR_RADIUS + radius) continue
+        if (DEPLOY_ORIGINS.some((origin) => Math.hypot(x - origin.x, z - origin.z) < DEPLOY_CLEAR_RADIUS + radius)) continue
         if (findObstacles(field, x, z, radius + OBSTACLE_GAP) > 0) continue
         place(field, { x, z, type: index, radius, yaw })
       }

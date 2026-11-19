@@ -9,3 +9,6 @@ Controls, terms and mechanics copy Total War (Warhammer / Three Kingdoms era). N
 - **Trees block soldiers** ([terrain](terrain.md#obstacles)): in Total War soldiers walk through the trees of a forest. Here every trunk is solid, as requested.
 - **No pathfinding** ([terrain](terrain.md#moving-through-obstacles)): Total War routes units around impassable ground. Here units march straight and only their soldiers sidestep obstacles, which is enough while every obstacle is small and spaced apart.
 - **Random maps** ([terrain](terrain.md#map)): Total War battle maps come from the campaign location. Here each load generates a new seeded map.
+- **Player controls both sides** ([combat](combat.md)): a demo convenience; Total War gives the enemy to the AI.
+- **No friendly fire or line of sight** ([combat](combat.md#ranged-fire)): bolts only damage their target and pass through hills, friends and obstacles.
+- **No morale** ([combat](combat.md#health-and-casualties)): Total War units waver and rout; here they fight to the last soldier.

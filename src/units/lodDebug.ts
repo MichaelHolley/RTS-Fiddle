@@ -25,7 +25,7 @@ function updateLodDebug(world: World): void {
   if (anyKey(world.resource(Devices).keys.pressed, KEYS.lodDebug)) state.highlight = !state.highlight
   const models = world.resource(SoldierModels)
   const tints = world.resource(LodDebugMaterials)
-  const unitType = world.storage(Unit).type
+  const units = world.storage(Unit)
   const soldiers = world.storage(Soldier)
   const { translation } = world.storage(Transform)
   const { material } = world.storage(MeshMaterial)
@@ -34,8 +34,9 @@ function updateLodDebug(world: World): void {
   for (const eid of world.query(SOLDIERS)) {
     const far = usesLod(camera, translation.x.get(eid), translation.y.get(eid), translation.z.get(eid))
     if (far) state.count++
-    const type = unitType.get(soldiers.unit.get(eid))
-    const wanted = (state.highlight && far ? tints[type] : models[type].material).material
+    const unit = soldiers.unit.get(eid)
+    const type = units.type.get(unit)
+    const wanted = (state.highlight && far ? tints[type] : models[type].materials[units.faction.get(unit)]).material
     if (material.get(eid) !== wanted) material.set(eid, wanted)
   }
 }

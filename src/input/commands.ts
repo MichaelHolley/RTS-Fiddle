@@ -100,14 +100,14 @@ function editControlGroups(world: World, edit: (units: number[]) => number[]): v
 // The right half becomes a new unit; both halves stay selected and in the original's control groups.
 function splitSelected(world: World): void {
   const soldiers = world.storage(Soldier)
-  const { type } = world.storage(Unit)
+  const { type, faction } = world.storage(Unit)
   const plans: UnitPlan[] = []
   const halves = new Map<number, number>()
   for (const [unit, members] of soldiersByUnit(world, selectedUnits(world))) {
     if (members.length < UNIT_SPLIT_MIN_SOLDIERS) continue
     const [left, right] = planSplit(unitPose(world, unit, members.length))
     const half = world.create()
-    world.add(half, Unit, { type: type.get(unit) })
+    world.add(half, Unit, { type: type.get(unit), faction: faction.get(unit) })
     const leftCount = left.layout.rows.reduce((sum, row) => sum + row.length, 0)
     members.sort((a, b) => soldiers.slotX.get(a.eid) - soldiers.slotX.get(b.eid))
     for (const { eid } of members.slice(leftCount)) soldiers.unit.set(eid, half)
@@ -124,13 +124,13 @@ function splitSelected(world: World): void {
   setSelection(world, halves.values(), true)
 }
 
-// Total War merges only units of the same type: per type, the largest selected unit absorbs the others, which are destroyed.
+// Total War merges only units of the same type: per type and faction, the largest selected unit absorbs the others, which are destroyed.
 function joinSelected(world: World): void {
-  const { type } = world.storage(Unit)
+  const { type, faction } = world.storage(Unit)
   const soldiers = world.storage(Soldier)
   const survivors = new Map<number, number>()
   const plans: UnitPlan[] = []
-  for (const poses of Map.groupBy(selectedPoses(world), (pose) => type.get(pose.unit)).values()) {
+  for (const poses of Map.groupBy(selectedPoses(world), (pose) => `${type.get(pose.unit)}:${faction.get(pose.unit)}`).values()) {
     if (poses.length < 2) continue
     poses.sort((a, b) => b.count - a.count)
     const survivor = poses[0].unit

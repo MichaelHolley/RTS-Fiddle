@@ -1,8 +1,9 @@
 import { component, entity, f32, i32, u32, vec3 } from '@dylanebert/shallot'
 
-/** `type` is a `UnitTypeId`. */
+/** `type` is a `UnitTypeId`, `faction` a `FactionId`. */
 export const Unit = component('Unit', {
   type: u32,
+  faction: u32,
   center: vec3,
   destination: vec3,
   facing: f32,
@@ -20,5 +21,7 @@ export const SoldierAnimation = component('SoldierAnimation', {
   lastZ: f32,
   frame: i32,
 })
+/** `cooldown` is the seconds until the soldier's next blow or shot. */
+export const Combatant = component('Combatant', { health: f32, cooldown: f32 })
 /** The entity drawing this soldier's glowing parts (see `glow.ts`). */
 export const SoldierGlow = component('SoldierGlow', { entity: entity })
