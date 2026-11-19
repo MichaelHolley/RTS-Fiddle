@@ -9,5 +9,5 @@
 
 - Soldiers of the same unit keep `2 × SOLDIER_RADIUS` apart.
 - Soldiers of different units only keep `FORMATION_SPACING / 2` apart, so they fit between each other's files and units can pass through one another, as in Total War.
-- A marching unit has right of way over an idle one. Between two marching units, the lower unit id wins. The other soldier steps sideways off the path instead of being shoved ahead, and the marching soldier is not pushed at all.
+- A marching unit has right of way over an idle one. Between two marching units, the lower unit id wins. The other soldier steps sideways off the path instead of being shoved ahead, and the marching soldier is not pushed at all. If stepping aside would put it inside an obstacle, both soldiers are pushed apart instead.
 - Soldiers never enter obstacles; see [terrain](terrain.md#obstacles).

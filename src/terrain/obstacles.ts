@@ -46,6 +46,11 @@ export function findObstacles(field: ObstacleField, x: number, z: number, reach:
   return found.length
 }
 
+/** Whether a circle of `radius` around `(x, z)` overlaps any obstacle. */
+export function isBlocked(field: ObstacleField, x: number, z: number, radius: number): boolean {
+  return findObstacles(field, x, z, radius) > 0
+}
+
 /** Moves `point` to the nearest spot where a circle of `radius` around it touches no obstacle. */
 export function pushOutOfObstacles(field: ObstacleField, point: Point, radius: number): void {
   const count = findObstacles(field, point.x, point.z, radius)

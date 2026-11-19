@@ -1,6 +1,9 @@
 import { Transform } from '@dylanebert/shallot'
 import type { Resource, System, World } from '@dylanebert/shallot'
 import { FORMATION_SPACING, SOLDIER_COUNT, SOLDIER_RADIUS } from '../config'
+import { isBlocked, Obstacles, pushOutOfObstacles } from '../terrain/obstacles'
+import type { ObstacleField } from '../terrain/obstacles'
+import type { Point } from './formation'
 import { Soldier } from './components'
 import { MoveSystem, UnitScratch } from './movement'
 
@@ -11,6 +14,9 @@ const PASS_SEPARATION = FORMATION_SPACING / 2
 const CELL_SIZE = MIN_SEPARATION
 // Cells hash into a table sized by soldier count rather than map area, so a bigger map costs nothing per tick.
 const BUCKETS = 2 ** Math.ceil(Math.log2(SOLDIER_COUNT * 2))
+// Each pass undoes a little of the last one's work; repeating settles crowds pressed against obstacles instead of jittering.
+const SOLVER_PASSES = 3
+const position: Point = { x: 0, z: 0 }
 
 const SOLDIERS = [Soldier]
 
@@ -55,8 +61,11 @@ function rightOfWay({ units, headings }: Grid, i: number, j: number): number {
   return -1
 }
 
-// Sideways rather than along the contact normal, so head-on contacts part the formation instead of shoving it ahead.
-function stepAside({ headings, xs, zs }: Grid, leader: number, yielder: number): void {
+/**
+ * Sideways rather than along the contact normal, so head-on contacts part the formation instead of shoving it ahead.
+ * Returns false, moving nobody, when the step would land in an obstacle.
+ */
+function stepAside({ headings, xs, zs }: Grid, obstacles: ObstacleField, leader: number, yielder: number): boolean {
   const forwardX = Math.sin(headings[leader])
   const forwardZ = Math.cos(headings[leader])
   const dx = xs[yielder] - xs[leader]
@@ -65,11 +74,15 @@ function stepAside({ headings, xs, zs }: Grid, leader: number, yielder: number):
   const lateral = dz * forwardX - dx * forwardZ
   const clear = Math.sqrt(PASS_SEPARATION * PASS_SEPARATION - along * along)
   const push = (lateral < 0 ? -clear : clear) - lateral
-  xs[yielder] -= forwardZ * push
-  zs[yielder] += forwardX * push
+  const x = xs[yielder] - forwardZ * push
+  const z = zs[yielder] + forwardX * push
+  if (isBlocked(obstacles, x, z, SOLDIER_RADIUS)) return false
+  xs[yielder] = x
+  zs[yielder] = z
+  return true
 }
 
-function separatePair(grid: Grid, i: number, j: number): void {
+function separatePair(grid: Grid, obstacles: ObstacleField, i: number, j: number): void {
   const { units, xs, zs } = grid
   const dx = xs[j] - xs[i]
   const dz = zs[j] - zs[i]
@@ -79,7 +92,7 @@ function separatePair(grid: Grid, i: number, j: number): void {
   if (distance >= minDistance) return
   if (!sameUnit) {
     const leader = rightOfWay(grid, i, j)
-    if (leader !== -1) return stepAside(grid, leader, leader === i ? j : i)
+    if (leader !== -1 && stepAside(grid, obstacles, leader, leader === i ? j : i)) return
   }
   const push = (minDistance - distance) / 2
   const nx = distance > 1e-6 ? dx / distance : 1
@@ -92,6 +105,7 @@ function separatePair(grid: Grid, i: number, j: number): void {
 
 function separateSoldiers(world: World): void {
   const grid = world.resource(SeparationGrid)
+  const obstacles = world.resource(Obstacles)
   const { bucketHead, nextInBucket, columns, rows, eids, units, headings, xs, zs } = grid
   const { marching } = world.resource(UnitScratch)
   const soldiers = world.storage(Soldier)
@@ -108,23 +122,34 @@ function separateSoldiers(world: World): void {
     count++
   }
 
-  bucketHead.fill(-1)
-  for (let i = 0; i < count; i++) {
-    columns[i] = Math.floor(xs[i] / CELL_SIZE)
-    rows[i] = Math.floor(zs[i] / CELL_SIZE)
-    const b = bucket(columns[i], rows[i])
-    nextInBucket[i] = bucketHead[b]
-    bucketHead[b] = i
-  }
+  for (let pass = 0; pass < SOLVER_PASSES; pass++) {
+    bucketHead.fill(-1)
+    for (let i = 0; i < count; i++) {
+      columns[i] = Math.floor(xs[i] / CELL_SIZE)
+      rows[i] = Math.floor(zs[i] / CELL_SIZE)
+      const b = bucket(columns[i], rows[i])
+      nextInBucket[i] = bucketHead[b]
+      bucketHead[b] = i
+    }
 
-  for (let i = 0; i < count; i++) {
-    for (let r = rows[i] - 1; r <= rows[i] + 1; r++) {
-      for (let c = columns[i] - 1; c <= columns[i] + 1; c++) {
-        for (let j = bucketHead[bucket(c, r)]; j !== -1; j = nextInBucket[j]) {
-          // Several cells can share a bucket; checking the cell visits each pair once.
-          if (j > i && columns[j] === c && rows[j] === r) separatePair(grid, i, j)
+    for (let i = 0; i < count; i++) {
+      for (let r = rows[i] - 1; r <= rows[i] + 1; r++) {
+        for (let c = columns[i] - 1; c <= columns[i] + 1; c++) {
+          for (let j = bucketHead[bucket(c, r)]; j !== -1; j = nextInBucket[j]) {
+            // Several cells can share a bucket; checking the cell visits each pair once.
+            if (j > i && columns[j] === c && rows[j] === r) separatePair(grid, obstacles, i, j)
+          }
         }
       }
+    }
+
+    // Obstacles come last in every pass, so no soldier ends the tick inside one.
+    for (let i = 0; i < count; i++) {
+      position.x = xs[i]
+      position.z = zs[i]
+      pushOutOfObstacles(obstacles, position, SOLDIER_RADIUS)
+      xs[i] = position.x
+      zs[i] = position.z
     }
   }
 

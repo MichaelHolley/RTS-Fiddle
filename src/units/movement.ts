@@ -9,7 +9,7 @@ import {
   UNIT_TYPES,
 } from '../config'
 import type { UnitTypeId } from '../config'
-import { findObstacles, Obstacles, pushOutOfObstacles } from '../terrain/obstacles'
+import { findObstacles, isBlocked, Obstacles, pushOutOfObstacles } from '../terrain/obstacles'
 import type { ObstacleField } from '../terrain/obstacles'
 import { MoveTarget, Soldier, Unit } from './components'
 import { slotToWorld } from './formation'
@@ -72,10 +72,7 @@ function soldierSlot(world: World, soldier: number, unit: number): Point {
   center.z = units.center.z.get(unit)
   offset.x = soldiers.slotX.get(soldier)
   offset.z = soldiers.slotZ.get(soldier)
-  slotToWorld(center, units.facing.get(unit), offset, slot)
-  // A slot inside an obstacle moves to its edge, so the soldier can reach it and the unit doesn't wait forever.
-  pushOutOfObstacles(world.resource(Obstacles), slot, SOLDIER_RADIUS)
-  return slot
+  return slotToWorld(center, units.facing.get(unit), offset, slot)
 }
 
 function setMoveTarget(world: World, eid: number, slot: Point, heading: number): void {
@@ -89,8 +86,14 @@ function setMoveTarget(world: World, eid: number, slot: Point, heading: number):
   targets.heading.set(eid, heading)
 }
 
-// A unit's center only advances while every soldier is within reform distance of its slot, so the block stays whole.
+/**
+ * A unit's center only advances while every soldier is within reform distance of its slot, so the block stays whole.
+ * Soldiers whose slot is inside an obstacle don't count: they walk around it and rejoin once the slot comes out.
+ * Only a halted unit moves blocked slots to the obstacle's edge; doing that on the march would crowd many slots onto
+ * one short stretch of edge.
+ */
 function updateUnits(world: World): void {
+  const obstacles = world.resource(Obstacles)
   const { lags, marching } = world.resource(UnitScratch)
   const units = world.storage(Unit)
   const soldiers = world.storage(Soldier)
@@ -101,6 +104,7 @@ function updateUnits(world: World): void {
   for (const eid of world.query(SOLDIERS)) {
     const unit = soldiers.unit.get(eid)
     const slot = soldierSlot(world, eid, unit)
+    if (isBlocked(obstacles, slot.x, slot.z, SOLDIER_RADIUS)) continue
     const lag = Math.hypot(slot.x - translation.x.get(eid), slot.z - translation.z.get(eid))
     if (lag > (lags.get(unit) ?? 0)) lags.set(unit, lag)
   }
@@ -132,13 +136,17 @@ function updateUnits(world: World): void {
       setMoveTarget(world, eid, slot, heading)
       continue
     }
+    pushOutOfObstacles(obstacles, slot, SOLDIER_RADIUS)
     const drift = Math.hypot(slot.x - translation.x.get(eid), slot.z - translation.z.get(eid))
     if (!world.has(eid, MoveTarget) && drift <= UNIT_DRIFT_DISTANCE) continue
     setMoveTarget(world, eid, slot, units.facing.get(unit))
   }
 }
 
-/** Heading toward `(dx, dz)`, bent past the nearest obstacle in the way so the soldier walks around it, not into it. */
+/**
+ * Heading toward the target `(dx, dz)` away, bent past the nearest obstacle in the way so the soldier walks around it,
+ * not into it. It passes on the side the target lies on, so with unflattened slots a formation parts around both sides.
+ */
 function steer(obstacles: ObstacleField, x: number, z: number, dx: number, dz: number, distance: number): number {
   const count = findObstacles(obstacles, x, z, SOLDIER_RADIUS + STEER_LOOKAHEAD)
   let heading = Math.atan2(dx, dz)
