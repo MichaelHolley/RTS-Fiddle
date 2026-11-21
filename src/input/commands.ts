@@ -2,7 +2,7 @@ import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
 import { DRAG_THRESHOLD_PX, KEYS, UNIT_SPLIT_MIN_SOLDIERS } from '../config'
 import { AttackOrder, MoveTarget, Soldier, Unit } from '../units/components'
-import { assignSlots, planFrontage, planJoin, planMove, planSplit, slotToWorld } from '../units/formation'
+import { assignSlots, gridLayout, planFrontage, planJoin, planMove, planSplit, slotToWorld } from '../units/formation'
 import type { Placed, Point, UnitPlan, UnitPose } from '../units/formation'
 import { UnitsPlugin } from '../units/units'
 import { pickGround } from './ground'
@@ -41,6 +41,15 @@ function unitPose(world: World, unit: number, count: number): UnitPose {
 function selectedPoses(world: World): UnitPose[] {
   const byUnit = soldiersByUnit(world, selectedUnits(world))
   return [...byUnit].map(([unit, soldiers]) => unitPose(world, unit, soldiers.length))
+}
+
+// Measured from where units are headed, so re-clicking mid-march keeps the layout the player set even though
+// faster units have pulled ahead. Attackers' destinations chase their target, so they count from where they stand.
+function movePoses(world: World): UnitPose[] {
+  const { destination } = world.storage(Unit)
+  return selectedPoses(world).map((pose) =>
+    world.has(pose.unit, AttackOrder) ? pose : { ...pose, x: destination.x.get(pose.unit), z: destination.z.get(pose.unit) },
+  )
 }
 
 function updatePreview(world: World, state: CommandState, x: number, y: number): void {
@@ -85,7 +94,9 @@ function orderAttack(world: World, target: number): boolean {
   if (attackers.length === 0) return false
   const at = { x: center.x.get(target), z: center.z.get(target) }
   for (const [unit, soldiers] of soldiersByUnit(world, attackers)) {
-    issueOrders(world, planMove(at, [unitPose(world, unit, soldiers.length)]))
+    const { x, z, files } = unitPose(world, unit, soldiers.length)
+    const layout = gridLayout(soldiers.length, files)
+    issueOrders(world, [{ unit, layout, center: at, facing: Math.atan2(at.x - x, at.z - z) }])
     world.add(unit, AttackOrder, { target })
   }
   return true
@@ -188,7 +199,7 @@ function updateCommands(world: World): void {
       if (state.preview) {
         issueOrders(world, state.preview)
       } else if (!orderAttack(world, pickUnit(world, event.x, event.y))) {
-        issueOrders(world, planMove(anchor, selectedPoses(world)))
+        issueOrders(world, planMove(anchor, movePoses(world)))
         state.ping = anchor
       }
       cancelDrag(state)

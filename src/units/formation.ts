@@ -62,36 +62,18 @@ export function footprint(files: number, ranks: number, spacing = FORMATION_SPAC
 }
 
 /**
- * Total War right-click: the selection keeps its shape and each unit its width, all turned to face the direction
- * of travel from the selection's center to `destination`.
+ * Right-click: the selection slides to `destination` without turning, so each unit keeps its facing, its frontage and
+ * its place relative to the others. The selection's center lands on `destination`.
  */
 export function planMove(destination: Point, units: readonly UnitPose[]): UnitPlan[] {
-  let cx = 0
-  let cz = 0
-  let sin = 0
-  let cos = 0
-  for (const unit of units) {
-    cx += unit.x / units.length
-    cz += unit.z / units.length
-    sin += Math.sin(unit.facing)
-    cos += Math.cos(unit.facing)
-  }
-  const current = Math.atan2(sin, cos)
-  const dx = destination.x - cx
-  const dz = destination.z - cz
-  const facing = Math.hypot(dx, dz) > 1e-3 ? Math.atan2(dx, dz) : current
-  const turnSin = Math.sin(facing - current)
-  const turnCos = Math.cos(facing - current)
-  return units.map((unit) => {
-    const ox = unit.x - cx
-    const oz = unit.z - cz
-    return {
-      unit: unit.unit,
-      layout: gridLayout(unit.count, unit.files),
-      center: { x: destination.x + ox * turnCos + oz * turnSin, z: destination.z - ox * turnSin + oz * turnCos },
-      facing,
-    }
-  })
+  const cx = units.reduce((sum, unit) => sum + unit.x, 0) / units.length
+  const cz = units.reduce((sum, unit) => sum + unit.z, 0) / units.length
+  return units.map((unit) => ({
+    unit: unit.unit,
+    layout: gridLayout(unit.count, unit.files),
+    center: { x: destination.x + unit.x - cx, z: destination.z + unit.z - cz },
+    facing: unit.facing,
+  }))
 }
 
 /**
