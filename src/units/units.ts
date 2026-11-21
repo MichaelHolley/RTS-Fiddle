@@ -5,7 +5,7 @@ import type { UnitTypeId } from '../config'
 import { WorldPlugin } from '../scene/world'
 import { Terrain, terrainHeight } from '../terrain/heightmap'
 import { AnimationSystem } from './animation'
-import { Combatant, MoveTarget, Selected, Soldier, SoldierAnimation, SoldierGlow, Unit } from './components'
+import { AttackOrder, Combatant, MoveTarget, Selected, Soldier, SoldierAnimation, SoldierGlow, Unit } from './components'
 import { deployment } from './deployment'
 import { gridLayout, slotToWorld } from './formation'
 import type { Point, SlotOffset } from './formation'
@@ -78,7 +78,7 @@ export const UnitsPlugin: Plugin = {
   name: 'RtsUnits',
   dependencies: [WorldPlugin],
   recovery: 'stateless',
-  components: [Unit, Selected, Soldier, MoveTarget, SoldierAnimation, SoldierGlow, Combatant],
+  components: [Unit, Selected, AttackOrder, Soldier, MoveTarget, SoldierAnimation, SoldierGlow, Combatant],
   systems: [UnitSystem, MoveSystem, SeparationSystem, TerrainContactSystem, AnimationSystem, GlowSystem, LodDebugSystem],
   async initialize(world) {
     await loadSoldierModels(world)

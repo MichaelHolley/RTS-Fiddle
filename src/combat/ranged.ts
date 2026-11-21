@@ -2,7 +2,7 @@ import { Transform } from '@dylanebert/shallot'
 import type { Resource, System, World } from '@dylanebert/shallot'
 import { FACTIONS, LASER_BOLT, LASER_MISS_SPREAD, SOLDIER_CENTER_HEIGHT, UNIT_TYPES } from '../config'
 import type { FactionId, RangedStats, UnitTypeId } from '../config'
-import { Combatant, MoveTarget, Soldier, Unit } from '../units/components'
+import { AttackOrder, Combatant, MoveTarget, Soldier, Unit } from '../units/components'
 import { MoveSystem, UnitScratch } from '../units/movement'
 import { BoltSystem, launchBolt } from './bolts'
 import type { Vec3 } from './bolts'
@@ -34,19 +34,27 @@ function rangedStats(world: World, unit: number): RangedStats | undefined {
   return UNIT_TYPES[world.storage(Unit).type.get(unit) as UnitTypeId].ranged
 }
 
-// Total War infantry only fire standing still, at the nearest enemy unit in range.
+// Total War infantry only fire standing still: at their attack order's target, otherwise the nearest enemy unit in range.
 function pickTargets(world: World, targets: Map<number, number>): void {
   targets.clear()
   const { marching } = world.resource(UnitScratch)
   const { center, faction } = world.storage(Unit)
+  const orders = world.storage(AttackOrder)
   const all = Array.from(world.query(UNITS))
+  const distanceBetween = (a: number, b: number): number =>
+    Math.hypot(center.x.get(b) - center.x.get(a), center.z.get(b) - center.z.get(a))
   for (const unit of all) {
     const ranged = rangedStats(world, unit)
     if (!ranged || marching.has(unit)) continue
+    const ordered = world.has(unit, AttackOrder) ? orders.target.get(unit) : 0
+    if (ordered !== 0) {
+      if (world.has(ordered, Unit) && distanceBetween(unit, ordered) <= ranged.range) targets.set(unit, ordered)
+      continue
+    }
     let nearest = ranged.range
     for (const other of all) {
       if (faction.get(other) === faction.get(unit)) continue
-      const distance = Math.hypot(center.x.get(other) - center.x.get(unit), center.z.get(other) - center.z.get(unit))
+      const distance = distanceBetween(unit, other)
       if (distance > nearest) continue
       nearest = distance
       targets.set(unit, other)

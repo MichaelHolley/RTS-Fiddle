@@ -20,6 +20,8 @@ interface MeleeState {
   /** Units with a soldier fighting this tick. */
   engaged: Set<number>
   wasEngaged: Set<number>
+  /** Halted units with a soldier leaving its slot to close with an enemy this tick. */
+  closing: Set<number>
   cells: CellGrid
   eids: Uint32Array
   factions: Uint32Array
@@ -35,6 +37,7 @@ export const Melee: Resource<MeleeState> = {
     fighting: new Set(),
     engaged: new Set(),
     wasEngaged: new Set(),
+    closing: new Set(),
     // Cells as wide as the seek radius, so the 3×3 neighbouring cells hold every enemy worth closing with.
     cells: createCellGrid(MELEE_SEEK_RADIUS, SOLDIER_COUNT),
     eids: new Uint32Array(SOLDIER_COUNT),
@@ -111,6 +114,7 @@ function engage(world: World): void {
   state.wasEngaged = state.engaged
   state.engaged = previous
   state.engaged.clear()
+  state.closing.clear()
   fighting.clear()
 
   const count = collect(world, state)
@@ -156,6 +160,7 @@ function engage(world: World): void {
       continue
     }
     if (quarry === -1) continue
+    state.closing.add(unit)
     const dx = xs[quarry] - xs[i]
     const dz = zs[quarry] - zs[i]
     const stop = BODY_DISTANCE / quarryDistance

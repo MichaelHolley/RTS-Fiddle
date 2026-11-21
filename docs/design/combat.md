@@ -12,7 +12,7 @@ Two factions, listed in `FACTIONS`, deploy `ARMY_DISTANCE` apart on opposite sid
 ## Ranged fire
 
 - Unit types with `ranged` stats (the Trooper) fire laser bolts in their faction's `laserColor`: blue for Blue, red for Red.
-- A unit fires only while halted, at the nearest enemy unit whose center is within `range`. Each soldier shoots once per `interval` (varied by `ATTACK_JITTER` so a unit doesn't fire in lockstep) at a random soldier of the target unit that is within its own `range`, turning to face it.
+- A unit fires only while halted: at the unit it was ordered to attack (see [controls](controls.md#attack)) once that unit's center is within `range`, otherwise at the nearest enemy unit whose center is within `range`. Each soldier shoots once per `interval` (varied by `ATTACK_JITTER` so a unit doesn't fire in lockstep) at a random soldier of the target unit that is within its own `range`, turning to face it.
 - A shot hits with chance `accuracy`. A hit takes `damage` when the bolt arrives; a miss lands within `LASER_MISS_SPREAD` of the target. Bolts fly at `LASER_BOLT.speed`.
 - A soldier fighting in melee does not fire.
 

@@ -107,6 +107,8 @@ export const FORMATION_SPACING = 1.5
 export const MELEE_REACH = 0.6
 /** Metres from its slot a halted melee soldier looks for an enemy to close with. */
 export const MELEE_SEEK_RADIUS = 5
+/** Fraction of its `range` a ranged unit closes to on an attack order, so a target edging back stays in range. */
+export const ATTACK_APPROACH = 0.9
 /** Each blow or shot waits its interval times a random factor within ±this, so soldiers don't act in lockstep. */
 export const ATTACK_JITTER = 0.25
 /** Metres a missed laser bolt lands off its target. */

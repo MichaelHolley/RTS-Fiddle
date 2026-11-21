@@ -17,7 +17,7 @@ Every key's browser default is cancelled except reload (F5, Ctrl+R), fullscreen 
 - Double-clicking a unit (within `DOUBLE_CLICK_MS`) selects every unit of its type and faction.
 - Both factions are selectable and can be selected together in the demo.
 - Shift adds to the selection. Ctrl+A selects all.
-- Selected units show a ring under each soldier and their destination footprint until they arrive.
+- Selected units show a ring under each soldier and their destination footprint until they arrive, or a red outline around the unit they are attacking.
 - Selected ranged units show a faint circle on the ground at their `range` around the unit's center. It is a full circle because units fire in every direction; Total War draws a forward arc. Deviation, see [total-war.md](total-war.md).
 
 ## Control groups
@@ -27,6 +27,15 @@ Ctrl+digit stores the selection (an empty selection clears the group). The digit
 ## Move
 
 Right-click: the selection keeps its relative layout and each unit its frontage, turned to face the direction of travel from the selection's center to the click. A ring pings the click point.
+
+## Attack
+
+Right-click an enemy unit (picked like a left-click select) to order every selected unit of another faction to attack it. Selected units of the target's own faction ignore the order. Each attacker turns to face the target and:
+
+- **Melee units** march straight at it and follow it as it moves, until their soldiers make contact; then they brawl (see [combat](combat.md#melee)). If the fight around them ends and the target is still alive, they chase it again.
+- **Ranged units** march until the target is within `ATTACK_APPROACH` of their `range`, then halt and fire only at the target. If it moves out of range they follow it.
+
+A unit fighting in melee holds where it is, whoever it fights. The order ends when the target is destroyed, and the attacker halts. Any move, frontage, split or join order cancels it. Selected attackers outline their target in red instead of showing a destination footprint. Right-dragging from an enemy unit gives a frontage order, not an attack.
 
 ## Frontage
 

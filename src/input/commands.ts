@@ -1,13 +1,13 @@
 import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
 import { DRAG_THRESHOLD_PX, KEYS, UNIT_SPLIT_MIN_SOLDIERS } from '../config'
-import { MoveTarget, Soldier, Unit } from '../units/components'
+import { AttackOrder, MoveTarget, Soldier, Unit } from '../units/components'
 import { assignSlots, planFrontage, planJoin, planMove, planSplit, slotToWorld } from '../units/formation'
 import type { Placed, Point, UnitPlan, UnitPose } from '../units/formation'
 import { UnitsPlugin } from '../units/units'
 import { pickGround } from './ground'
 import { anyKey } from './keys'
-import { ControlGroups, selectedCount, selectedUnits, setSelection, SelectionPlugin } from './selection'
+import { ControlGroups, pickUnit, selectedCount, selectedUnits, setSelection, SelectionPlugin } from './selection'
 
 const SOLDIERS = [Soldier]
 
@@ -61,6 +61,7 @@ function issueOrders(world: World, plans: readonly UnitPlan[]): void {
   const soldiers = world.storage(Soldier)
   const byUnit = soldiersByUnit(world, plans.map((plan) => plan.unit))
   for (const { unit, layout, center, facing } of plans) {
+    if (world.has(unit, AttackOrder)) world.remove(unit, AttackOrder)
     units.destination.x.set(unit, center.x)
     units.destination.z.set(unit, center.z)
     units.facing.set(unit, facing)
@@ -71,6 +72,23 @@ function issueOrders(world: World, plans: readonly UnitPlan[]): void {
       soldiers.slotZ.set(eid, slot.z)
     }
   }
+}
+
+/**
+ * Total War right-click on an enemy: each selected unit of another faction turns to face the target and attacks it.
+ * Selected units of the target's own faction ignore the order. Returns whether any unit was ordered; -1 is no target.
+ */
+function orderAttack(world: World, target: number): boolean {
+  if (target === -1) return false
+  const { center, faction } = world.storage(Unit)
+  const attackers = selectedUnits(world).filter((unit) => faction.get(unit) !== faction.get(target))
+  if (attackers.length === 0) return false
+  const at = { x: center.x.get(target), z: center.z.get(target) }
+  for (const [unit, soldiers] of soldiersByUnit(world, attackers)) {
+    issueOrders(world, planMove(at, [unitPose(world, unit, soldiers.length)]))
+    world.add(unit, AttackOrder, { target })
+  }
+  return true
 }
 
 // Snaps unit centers to the plan so soldiers run straight to their new slots instead of the block marching there.
@@ -169,7 +187,7 @@ function updateCommands(world: World): void {
       const { anchor } = state.drag
       if (state.preview) {
         issueOrders(world, state.preview)
-      } else {
+      } else if (!orderAttack(world, pickUnit(world, event.x, event.y))) {
         issueOrders(world, planMove(anchor, selectedPoses(world)))
         state.ping = anchor
       }

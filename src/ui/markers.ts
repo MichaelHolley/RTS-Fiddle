@@ -5,7 +5,7 @@ import type { UnitTypeId } from '../config'
 import { Commands, CommandPlugin } from '../input/commands'
 import { Terrain, terrainHeight } from '../terrain/heightmap'
 import type { Heightmap } from '../terrain/heightmap'
-import { Selected, Unit } from '../units/components'
+import { AttackOrder, Selected, Unit } from '../units/components'
 import { footprint, slotToWorld } from '../units/formation'
 import type { Point, SlotOffset } from '../units/formation'
 
@@ -13,6 +13,7 @@ const LIFT = 0.15
 /** Longest straight piece of a marker line, so lines follow the ground over hills. */
 const SEGMENT_LENGTH = 2
 const MARKER_COLOR = 0xffe666
+const ATTACK_COLOR = 0xff4d4d
 const GROUND_COLOR = 0x476642
 const LINE_WIDTH = 2
 const ARROW_BASE = 0.6
@@ -35,6 +36,7 @@ interface Ring {
 const MoveRing: Resource<{ ring: Ring | null }> = { create: () => ({ ring: null }) }
 
 const SELECTED_UNITS = [Unit, Selected]
+const SELECTED_ATTACKERS = [Unit, Selected, AttackOrder]
 const cornerPoint: Point = { x: 0, z: 0 }
 const cornerOffset: SlotOffset = { x: 0, z: 0 }
 const corners: Point[] = Array.from({ length: 4 }, () => ({ x: 0, z: 0 }))
@@ -72,27 +74,49 @@ function drawGroundLine(world: World, from: Point, to: Point, color: number): vo
   }
 }
 
-function drawFootprint(world: World, center: Point, facing: number, files: number, ranks: number): void {
+function drawFootprint(
+  world: World,
+  center: Point,
+  facing: number,
+  files: number,
+  ranks: number,
+  color = MARKER_COLOR,
+): void {
   const { halfWidth, front, back } = footprint(files, ranks)
   setCorner(corners[0], center, facing, -halfWidth, front)
   setCorner(corners[1], center, facing, halfWidth, front)
   setCorner(corners[2], center, facing, halfWidth, back)
   setCorner(corners[3], center, facing, -halfWidth, back)
-  for (let i = 0; i < 4; i++) drawGroundLine(world, corners[i], corners[(i + 1) % 4], MARKER_COLOR)
+  for (let i = 0; i < 4; i++) drawGroundLine(world, corners[i], corners[(i + 1) % 4], color)
   setCorner(arrow[0], center, facing, -ARROW_HALF_WIDTH, front + ARROW_BASE)
   setCorner(arrow[1], center, facing, 0, front + ARROW_TIP)
   setCorner(arrow[2], center, facing, ARROW_HALF_WIDTH, front + ARROW_BASE)
-  drawGroundLine(world, arrow[0], arrow[1], MARKER_COLOR)
-  drawGroundLine(world, arrow[1], arrow[2], MARKER_COLOR)
+  drawGroundLine(world, arrow[0], arrow[1], color)
+  drawGroundLine(world, arrow[1], arrow[2], color)
 }
 
 function drawDestinations(world: World): void {
   const units = world.storage(Unit)
   for (const unit of world.query(SELECTED_UNITS)) {
+    if (world.has(unit, AttackOrder)) continue
     destination.x = units.destination.x.get(unit)
     destination.z = units.destination.z.get(unit)
     if (destination.x === units.center.x.get(unit) && destination.z === units.center.z.get(unit)) continue
     drawFootprint(world, destination, units.facing.get(unit), units.files.get(unit), units.ranks.get(unit))
+  }
+}
+
+// An attacker's destination follows its target, so the target is outlined instead.
+function drawAttackTargets(world: World): void {
+  const units = world.storage(Unit)
+  const orders = world.storage(AttackOrder)
+  const targets = new Set<number>()
+  for (const unit of world.query(SELECTED_ATTACKERS)) targets.add(orders.target.get(unit))
+  for (const target of targets) {
+    if (!world.has(target, Unit)) continue
+    destination.x = units.center.x.get(target)
+    destination.z = units.center.z.get(target)
+    drawFootprint(world, destination, units.facing.get(target), units.files.get(target), units.ranks.get(target), ATTACK_COLOR)
   }
 }
 
@@ -103,7 +127,6 @@ function drawPreview(world: World): void {
     drawFootprint(world, center, facing, layout.rows[0].length, layout.rows.length)
   }
 }
-
 
 function lerpChannel(from: number, to: number, t: number): number {
   return Math.round(from + (to - from) * t)
@@ -179,6 +202,7 @@ const MarkersSystem: System = {
   group: 'simulation',
   update(world) {
     drawDestinations(world)
+    drawAttackTargets(world)
     drawRanges(world)
     drawPreview(world)
     drawMoveRing(world)

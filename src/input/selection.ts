@@ -103,15 +103,21 @@ function selectRect(world: World, drag: DragState, additive: boolean): void {
   setSelection(world, units, additive)
 }
 
-function selectClick(world: World, drag: DragState, additive: boolean): void {
+/** The unit of the soldier nearest to viewport point `(x, y)` within `CLICK_SELECT_RADIUS_PX`, or -1. */
+export function pickUnit(world: World, x: number, y: number): number {
   let nearest = -1
   let nearestDistance = CLICK_SELECT_RADIUS_PX
-  forEachSoldierOnScreen(world, (unit, x, y) => {
-    const distance = Math.hypot(x - drag.currentX, y - drag.currentY)
+  forEachSoldierOnScreen(world, (unit, sx, sy) => {
+    const distance = Math.hypot(sx - x, sy - y)
     if (distance > nearestDistance) return
     nearestDistance = distance
     nearest = unit
   })
+  return nearest
+}
+
+function selectClick(world: World, drag: DragState, additive: boolean): void {
+  const nearest = pickUnit(world, drag.currentX, drag.currentY)
   const last = world.resource(LastClick)
   const now = world.time.realElapsed * 1000
   const double = nearest >= 0 && nearest === last.unit && now - last.at <= DOUBLE_CLICK_MS

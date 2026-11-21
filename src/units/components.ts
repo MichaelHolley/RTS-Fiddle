@@ -11,6 +11,8 @@ export const Unit = component('Unit', {
   ranks: u32,
 })
 export const Selected = component('Selected', {})
+/** On a unit ordered to attack the enemy unit `target`; see `attack.ts`. */
+export const AttackOrder = component('AttackOrder', { target: entity })
 export const Soldier = component('Soldier', { unit: entity, slotX: f32, slotZ: f32 })
 export const MoveTarget = component('MoveTarget', { x: f32, z: f32, heading: f32 })
 /** `frame` is the shown run frame, or -1 while idle. */
