@@ -91,9 +91,13 @@ export const UNIT_MIN_FILES = 4
 export const UNIT_SPLIT_MIN_SOLDIERS = 9
 export const UNIT_GAP = 3
 export const UNIT_REFORM_DISTANCE = 2
+/** Fraction of a unit's soldiers that may straggle beyond `UNIT_REFORM_DISTANCE` without halting the unit. */
+export const UNIT_STRAGGLER_SHARE = 0.15
 export const UNIT_DRIFT_DISTANCE = 0.75
 /** Soldier run speed as a multiple of its unit's `speed`; above 1 so soldiers can catch up with their slots. */
 export const SOLDIER_CATCH_UP = 1.2
+/** Run speed multiple for a soldier further than `UNIT_REFORM_DISTANCE` from its slot, so stragglers rejoin quickly. */
+export const SOLDIER_SPRINT = 1.6
 /** Radians per second a soldier can turn. */
 export const SOLDIER_TURN_SPEED = Math.PI * 3
 export const SOLDIER_RADIUS = 0.5

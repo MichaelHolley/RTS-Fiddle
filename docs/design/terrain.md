@@ -18,6 +18,6 @@
 ## Moving through obstacles
 
 - Units march in a straight line to their destination; there is no pathfinding. Soldiers walk around obstacles in their way and rejoin their slot past them, so formations flow around rocks and through forests.
-- Each soldier passes an obstacle on the side its slot lies on, so a formation parts around both sides of a rock instead of funnelling past one side in single file.
-- While a unit marches, soldiers whose slot is inside an obstacle don't hold the unit up: they walk around and rejoin once their slot comes out the other side. The unit still waits for other stragglers (see [formation](formation.md)).
+- Each soldier passes an obstacle on the side its slot lies on, so a formation parts around both sides of a rock instead of funnelling past one side in single file. If another obstacle blocks that way round, it turns further the same way, so it threads between trees instead of zigzagging against them.
+- While a unit marches, soldiers whose slot is inside an obstacle don't hold the unit up: they walk around and rejoin once their slot comes out the other side. A few other stragglers don't hold it up either (see [formation](formation.md)).
 - When a unit halts with slots inside an obstacle, those soldiers stand at the obstacle's edge nearest their slot.
