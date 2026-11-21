@@ -13,7 +13,7 @@ import {
 import type { UnitTypeId } from '../config'
 import { findObstacles, isBlocked, Obstacles, pushOutOfObstacles } from '../terrain/obstacles'
 import type { ObstacleField } from '../terrain/obstacles'
-import { MoveTarget, Soldier, Unit } from './components'
+import { MarchSpeed, MoveTarget, Soldier, Unit } from './components'
 import { slotToWorld } from './formation'
 import type { Point, SlotOffset } from './formation'
 
@@ -62,6 +62,7 @@ function turnToward(rotation: Vector4Field, eid: number, target: number, maxTurn
 }
 
 function unitSpeed(world: World, unit: number): number {
+  if (world.has(unit, MarchSpeed)) return world.storage(MarchSpeed).speed.get(unit)
   return UNIT_TYPES[world.storage(Unit).type.get(unit) as UnitTypeId].speed
 }
 

@@ -13,6 +13,8 @@ export const Unit = component('Unit', {
 export const Selected = component('Selected', {})
 /** On a unit ordered to attack the enemy unit `target`; see `attack.ts`. */
 export const AttackOrder = component('AttackOrder', { target: entity })
+/** On a unit ordered together with slower units: the metres per second it marches at until its next order. */
+export const MarchSpeed = component('MarchSpeed', { speed: f32 })
 export const Soldier = component('Soldier', { unit: entity, slotX: f32, slotZ: f32 })
 export const MoveTarget = component('MoveTarget', { x: f32, z: f32, heading: f32 })
 /** `frame` is the shown run frame, or -1 while idle. */

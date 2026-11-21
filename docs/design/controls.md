@@ -26,7 +26,7 @@ Ctrl+digit stores the selection (an empty selection clears the group). The digit
 
 ## Move
 
-Right-click: the selection slides to the click without turning. Each unit keeps its facing, its frontage and its place relative to the others, so a line of melee units with ranged units behind it arrives in the same arrangement, and the selection's center lands on the click. Units still marching count from where they are headed, so clicking again on the march keeps the layout last ordered even if faster units have pulled ahead. A ring pings the click point. To turn units, give a frontage order. Deviation from Total War, see [total-war.md](total-war.md).
+Right-click: the selection slides to the click without turning. Each unit keeps its facing, its frontage and its place relative to the others, so a line of melee units with ranged units behind it arrives in the same arrangement, and the selection's center lands on the click. Units still marching count from where they are headed, so clicking again on the march keeps the layout last ordered even if faster units have pulled ahead. The selection marches at its slowest unit's speed (see [formation](formation.md)). A ring pings the click point. To turn units, give a frontage order. Deviation from Total War, see [total-war.md](total-war.md).
 
 ## Attack
 

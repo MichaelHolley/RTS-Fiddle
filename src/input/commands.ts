@@ -1,7 +1,8 @@
 import { Devices, InputPlugin, Transform } from '@dylanebert/shallot'
 import type { Plugin, Resource, System, World } from '@dylanebert/shallot'
-import { DRAG_THRESHOLD_PX, KEYS, UNIT_SPLIT_MIN_SOLDIERS } from '../config'
-import { AttackOrder, MoveTarget, Soldier, Unit } from '../units/components'
+import { DRAG_THRESHOLD_PX, KEYS, UNIT_SPLIT_MIN_SOLDIERS, UNIT_TYPES } from '../config'
+import type { UnitTypeId } from '../config'
+import { AttackOrder, MarchSpeed, MoveTarget, Soldier, Unit } from '../units/components'
 import { assignSlots, gridLayout, planFrontage, planJoin, planMove, planSplit, slotToWorld } from '../units/formation'
 import type { Placed, Point, UnitPlan, UnitPose } from '../units/formation'
 import { UnitsPlugin } from '../units/units'
@@ -71,6 +72,7 @@ function issueOrders(world: World, plans: readonly UnitPlan[]): void {
   const byUnit = soldiersByUnit(world, plans.map((plan) => plan.unit))
   for (const { unit, layout, center, facing } of plans) {
     if (world.has(unit, AttackOrder)) world.remove(unit, AttackOrder)
+    if (world.has(unit, MarchSpeed)) world.remove(unit, MarchSpeed)
     units.destination.x.set(unit, center.x)
     units.destination.z.set(unit, center.z)
     units.facing.set(unit, facing)
@@ -81,6 +83,15 @@ function issueOrders(world: World, plans: readonly UnitPlan[]): void {
       soldiers.slotZ.set(eid, slot.z)
     }
   }
+}
+
+/** Units ordered together march at the slowest one's speed, so a mixed selection keeps its arrangement on the way. */
+function issueGroupOrders(world: World, plans: readonly UnitPlan[]): void {
+  issueOrders(world, plans)
+  const { type } = world.storage(Unit)
+  const speedOf = (unit: number): number => UNIT_TYPES[type.get(unit) as UnitTypeId].speed
+  const speed = Math.min(...plans.map((plan) => speedOf(plan.unit)))
+  for (const { unit } of plans) if (speedOf(unit) > speed) world.add(unit, MarchSpeed, { speed })
 }
 
 /**
@@ -197,9 +208,9 @@ function updateCommands(world: World): void {
       updatePreview(world, state, event.x, event.y)
       const { anchor } = state.drag
       if (state.preview) {
-        issueOrders(world, state.preview)
+        issueGroupOrders(world, state.preview)
       } else if (!orderAttack(world, pickUnit(world, event.x, event.y))) {
-        issueOrders(world, planMove(anchor, movePoses(world)))
+        issueGroupOrders(world, planMove(anchor, movePoses(world)))
         state.ping = anchor
       }
       cancelDrag(state)
