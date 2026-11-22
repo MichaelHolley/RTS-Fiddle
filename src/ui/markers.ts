@@ -189,7 +189,7 @@ function drawMoveRing(world: World): void {
   }
   const { ring } = state
   if (!ring) return
-  ring.elapsed += world.time.deltaTime
+  ring.elapsed += world.time.realDeltaTime
   if (ring.elapsed >= RING_SECONDS) {
     state.ring = null
     return

@@ -6,6 +6,12 @@ Key bindings are listed in `KEYS`; this file describes what each control does.
 
 WASD/arrows or screen-edge pan, Q/E or middle-drag rotate, wheel zoom. Pan speed scales with zoom distance. The camera ignores every key while Ctrl is held, so A pans left and Ctrl+A selects all.
 
+## Pause and game speed
+
+P (or Pause) pauses and resumes the battle. +/- step the game speed through `GAME_SPEEDS`, from slow motion to fast-forward; the speed is kept across a pause. The HUD shows the current speed and when the game is paused. Both are ignored while Ctrl is held.
+
+While paused, the camera, selection and every order still work: units take their orders and start on resume. The camera always moves at its normal rate, whatever the game speed. Speeds stop at 4× because the engine runs at most four simulation steps per frame; beyond that the game would lag behind its own clock.
+
 ## Browser shortcuts
 
 Every key's browser default is cancelled except reload (F5, Ctrl+R), fullscreen (F11), dev tools (F12, Ctrl+Shift+I/J/C) and Cmd combos. No page can block Ctrl+W/T/N/Tab, so they are never bound.

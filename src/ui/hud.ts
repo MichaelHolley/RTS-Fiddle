@@ -5,6 +5,7 @@ import { ControlGroups, selectedCount, SelectionDrag } from '../input/selection'
 import { Terrain } from '../terrain/heightmap'
 import { Selected, Soldier, Unit } from '../units/components'
 import { SoldierLod } from '../units/lodDebug'
+import { gameSpeedLabel } from '../input/gameSpeed'
 
 const REFRESH_MS = 250
 const UNITS = [Unit]
@@ -70,7 +71,7 @@ export function mountUi(container: HTMLElement, world: World): () => void {
     const selected = `${selectedCount(world)} (${selectedSoldierCount(world)} soldiers)`
     const lod = world.resource(SoldierLod)
     const lodLabel = `${lod.count}${lod.highlight ? ' (highlighted)' : ' (L to highlight)'}`
-    hud.textContent = `FPS: ${fps.toFixed(0)} | ${factionStrength(world)} | Units: ${unitCount(world)} | Selected: ${selected} | LOD: ${lodLabel} | Map seed: ${world.resource(Terrain).seed}`
+    hud.textContent = `${gameSpeedLabel(world)} | FPS: ${fps.toFixed(0)} | ${factionStrength(world)} | Units: ${unitCount(world)} | Selected: ${selected} | LOD: ${lodLabel} | Map seed: ${world.resource(Terrain).seed}`
     const keys = [...groups.keys()].sort()
     groupsElement.replaceChildren(...keys.map((key) => groupIcon(key, groups.get(key)!.length)))
   }

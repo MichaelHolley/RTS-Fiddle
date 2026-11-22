@@ -35,7 +35,8 @@ function updateCamera(world: World): void {
   const held = anyKey(keys.held, KEYS.ctrl) ? NO_KEYS : keys.held
   const orbit = world.storage(Orbit)
   const eid = world.resource(RtsView).camera
-  const dt = world.time.deltaTime
+  // Real time, so the camera moves while paused and at the same rate at any game speed
+  const dt = world.time.realDeltaTime
 
   let yaw = orbit.yaw.get(eid)
   yaw += (Number(anyKey(held, KEYS.rotateRight)) - Number(anyKey(held, KEYS.rotateLeft))) * CAMERA.rotateSpeed * dt

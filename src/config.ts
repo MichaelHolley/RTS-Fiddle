@@ -179,6 +179,8 @@ export const CAMERA = {
   rotateSpeed: 2,
   edgePanPx: 12,
 }
+/** Game speeds the speed keys step through, slowest first; at most 4 since Shallot runs at most 4 fixed steps a frame. */
+export const GAME_SPEEDS: readonly number[] = [0.25, 0.5, 1, 2, 4]
 export const DRAG_THRESHOLD_PX = 4
 export const CLICK_SELECT_RADIUS_PX = 20
 export const DOUBLE_CLICK_MS = 300
@@ -201,6 +203,9 @@ export const KEYS = {
   split: ['KeyX'],
   join: ['KeyC'],
   lodDebug: ['KeyL'],
+  pause: ['KeyP', 'Pause'],
+  speedUp: ['Equal', 'NumpadAdd'],
+  speedDown: ['Minus', 'NumpadSubtract'],
   ctrl: ['ControlLeft', 'ControlRight'],
   shift: ['ShiftLeft', 'ShiftRight'],
 } satisfies Record<string, readonly string[]>

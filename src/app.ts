@@ -3,6 +3,7 @@ import { DiagnosticsOverlayPlugin } from '@dylanebert/shallot/extras'
 import { RtsCameraPlugin } from './camera/rtsCamera'
 import { CombatPlugin } from './combat/combat'
 import { CommandPlugin } from './input/commands'
+import { GameSpeedPlugin } from './input/gameSpeed'
 import { SelectionPlugin } from './input/selection'
 import { WorldPlugin } from './scene/world'
 import { TerrainPlugin } from './terrain/terrain'
@@ -19,6 +20,7 @@ export const RtsPlugin: Plugin = {
     CombatPlugin,
     SelectionPlugin,
     CommandPlugin,
+    GameSpeedPlugin,
     MarkersPlugin,
     DiagnosticsOverlayPlugin,
   ],
